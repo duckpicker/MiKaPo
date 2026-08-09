@@ -223,7 +223,7 @@ export const MotionCapture = ({
     lastResultAtRef.current = now
     // 0.9×: finish the tween just before the average next result — chasing with
     // a longer duration compounds into extra latency and shaved motion peaks.
-    const tweenMs = Math.min(100, resultIntervalEmaRef.current * 0.9)
+    const tweenMs = Math.max(40, resultIntervalEmaRef.current * 2);
 
     if (!modelLoadedRef.current) return
 

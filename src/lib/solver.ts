@@ -1,218 +1,21 @@
 import { Landmark } from "@mediapipe/tasks-vision"
 import { Quat, Vec3 } from "reze-engine"
 import { QuaternionOneEuroFilter, Vec3OneEuroFilter } from "./filters"
-import { HandIndexTable, PoseLandmarksTable } from "./landmarks"
-
-/** One of the model's rigid bodies, flattened for the solver's clearance pass. */
-export interface BodyCollider {
-  bone: string
-  /** 0 sphere, 1 box, 2 capsule (PMX order). */
-  shape: number
-  size: XYZ
-  /** Rest-pose world position from the PMX. */
-  position: XYZ
-}
-
-export interface BoneState {
-  name: string
-  rotation: Quat
-  /** Only bones that MOVE carry this: センター (the body's height over the
-   *  ground) and the leg IK bones (where each foot actually is). Everything
-   *  else keeps its rest translation, as MMD expects. */
-  translation?: Vec3
-}
-
-/** The landmark arrays the solver reads — HolisticLandmarkerResult and the
- * worker's trimmed payload both satisfy this structurally. */
-export interface SolverInput {
-  poseWorldLandmarks: Landmark[][]
-  leftHandWorldLandmarks: Landmark[][]
-  rightHandWorldLandmarks: Landmark[][]
-}
-
-// ---------------------------------------------------------------------------
-// Bone definitions
-//
-// The solver is a single generic pipeline over this table. Each entry solves one
-// MMD bone in its parent's local frame; parent world rotations accumulate in
-// solve order, so every chain product is computed exactly once per frame.
-// ---------------------------------------------------------------------------
-
-type LandmarkSource = "pose" | "leftHand" | "rightHand"
-/** A landmark name, or a pair whose midpoint is used. */
-type Point = string | [string, string]
-
-interface BasisDef {
-  kind: "basis"
-  name: "上半身" | "下半身" | "頭"
-  parent: string | null
-}
-
-interface BendLimit {
-  /** Flexion axis in the bone's parent-local frame; positive twist = curl toward palm. */
-  axis: Vec3
-  /** Flexion range in radians (min < 0 allows slight hyperextension). */
-  min: number
-  max: number
-  /** Max out-of-plane swing (spread/abduction) in radians. */
-  spreadMax: number
-}
-
-interface DirectionDef {
-  kind: "direction"
-  name: string
-  parent: string | null
-  source: LandmarkSource
-  from: Point
-  to: Point
-  /**
-   * Roll witness: name of the child-segment def whose live direction pins the
-   * rotation around this bone's axis (e.g. the forearm orients upper-arm roll).
-   * Direction-only solving (shortest-arc) leaves that degree of freedom to
-   * chance; the witness resolves it whenever the child joint is bent enough
-   * for the roll to be observable, blending back to shortest-arc when straight.
-   */
-  witness?: string
-  /**
-   * Second witness, used to the extent the first one has faded out.
-   *
-   * The knee witness dies exactly when the leg straightens, and a straight leg
-   * is most of standing, walking and most of any dance — so for the thigh the
-   * primary witness is absent precisely when it is needed, and hip rotation
-   * falls back to shortest-arc, which carries no twist at all. That is what
-   * makes mocap legs read as stiff: knees and feet locked forward relative to
-   * the pelvis, the leg swinging like a pendulum.
-   *
-   * A straight knee cannot report roll, but the FOOT can. With the knee
-   * extended the shin cannot twist independently, so where the toes point is
-   * where the femur is rotated. Ankle flexion changes only how far the toe
-   * direction leans off the leg axis — its bearing around the axis, which is
-   * all the witness basis uses, still reads femoral rotation.
-   */
-  rollFallback?: string
-  /**
-   * Anatomical clamp (fingers): shortest-arc solving happily bends a joint the
-   * wrong way when a noisy landmark frame lands on the extension side — clamp
-   * flexion and spread to human ranges so glitches can't produce backward curls.
-   */
-  bend?: BendLimit
-}
-
-interface TwistDef {
-  kind: "twist"
-  name: string
-  parent: string
-  source: LandmarkSource
-  from: string
-  to: string
-  /** Ref key of the bone whose rest direction is the twist axis (the forearm). */
-  axisRef: string
-}
-
-interface FingerRatioDef {
-  kind: "fingerRatio"
-  name: string
-  /** Base joint (proximal phalanx) whose bend this joint follows at a fixed ratio. */
-  base: string
-  bendAxis: Vec3
-  ratio: number
-}
-
-type BoneDef = BasisDef | DirectionDef | TwistDef | FingerRatioDef
-
-const fingerCurl = (side: "左" | "右", finger: string, axis: Vec3, ratios: [number, number]): FingerRatioDef[] => [
-  { kind: "fingerRatio", name: `${side}${finger}２`, base: `${side}${finger}１`, bendAxis: axis, ratio: ratios[0] },
-  { kind: "fingerRatio", name: `${side}${finger}３`, base: `${side}${finger}１`, bendAxis: axis, ratio: ratios[1] },
-]
-
-const DEG = Math.PI / 180
-/** Finger flexion axes: fingers point ±X at rest, palms face inward/down, so
- * curl-toward-palm is a rotation about ∓Z (mirrored between hands). */
-const FINGER_BEND: Record<"左" | "右", BendLimit> = {
-  左: { axis: new Vec3(0, 0, -1), min: -15 * DEG, max: 110 * DEG, spreadMax: 22 * DEG },
-  右: { axis: new Vec3(0, 0, 1), min: -15 * DEG, max: 110 * DEG, spreadMax: 22 * DEG },
-}
-const THUMB_BEND: Record<"左" | "右", BendLimit> = {
-  左: { axis: new Vec3(-1, -1, 0).normalize(), min: -25 * DEG, max: 80 * DEG, spreadMax: 40 * DEG },
-  右: { axis: new Vec3(-1, 1, 0).normalize(), min: -25 * DEG, max: 80 * DEG, spreadMax: 40 * DEG },
-}
-
-const fingerBase = (side: "左" | "右", source: LandmarkSource, finger: string, mcp: string, pip: string): DirectionDef => ({
-  kind: "direction",
-  name: `${side}${finger}１`,
-  parent: `${side}手首`,
-  source,
-  from: mcp,
-  to: pip,
-  bend: FINGER_BEND[side],
-})
-
-const BONE_DEFS: BoneDef[] = [
-  { kind: "basis", name: "上半身", parent: null },
-  {
-    kind: "direction",
-    name: "首",
-    parent: "上半身",
-    source: "pose",
-    from: ["left_shoulder", "right_shoulder"],
-    to: ["left_ear", "right_ear"],
-  },
-  { kind: "basis", name: "頭", parent: "首" },
-  { kind: "basis", name: "下半身", parent: null },
-
-  { kind: "direction", name: "左足", parent: "下半身", source: "pose", from: "left_hip", to: "left_knee", witness: "左ひざ", rollFallback: "左足首" },
-  { kind: "direction", name: "右足", parent: "下半身", source: "pose", from: "right_hip", to: "right_knee", witness: "右ひざ", rollFallback: "右足首" },
-  { kind: "direction", name: "左ひざ", parent: "左足", source: "pose", from: "left_knee", to: "left_ankle" },
-  { kind: "direction", name: "右ひざ", parent: "右足", source: "pose", from: "right_knee", to: "right_ankle" },
-  // ankle→foot_index matches the calibrated 足首→つま先 bone reference (ankle is
-  // above heel; a heel baseline tilts the rest direction ~30° off the bone ref)
-  { kind: "direction", name: "左足首", parent: "左ひざ", source: "pose", from: "left_ankle", to: "left_foot_index" },
-  { kind: "direction", name: "右足首", parent: "右ひざ", source: "pose", from: "right_ankle", to: "right_foot_index" },
-
-  { kind: "direction", name: "左腕", parent: "上半身", source: "pose", from: "left_shoulder", to: "left_elbow", witness: "左ひじ" },
-  { kind: "direction", name: "右腕", parent: "上半身", source: "pose", from: "right_shoulder", to: "right_elbow", witness: "右ひじ" },
-  { kind: "direction", name: "左ひじ", parent: "左腕", source: "pose", from: "left_elbow", to: "left_wrist" },
-  { kind: "direction", name: "右ひじ", parent: "右腕", source: "pose", from: "right_elbow", to: "right_wrist" },
-
-  // Wrist twist: rotation of the hand's index−ring axis about the forearm.
-  // Swing residue is absorbed by 手首, whose parent chain includes 手捩.
-  { kind: "twist", name: "左手捩", parent: "左ひじ", source: "leftHand", from: "ring_mcp", to: "index_mcp", axisRef: "左ひじ" },
-  { kind: "twist", name: "右手捩", parent: "右ひじ", source: "rightHand", from: "ring_mcp", to: "index_mcp", axisRef: "右ひじ" },
-  { kind: "direction", name: "左手首", parent: "左手捩", source: "leftHand", from: "wrist", to: "middle_mcp" },
-  { kind: "direction", name: "右手首", parent: "右手捩", source: "rightHand", from: "wrist", to: "middle_mcp" },
-
-  { kind: "direction", name: "左親指１", parent: "左手首", source: "leftHand", from: "thumb_mcp", to: "thumb_ip", bend: THUMB_BEND["左"] },
-  fingerBase("左", "leftHand", "人指", "index_mcp", "index_pip"),
-  fingerBase("左", "leftHand", "中指", "middle_mcp", "middle_pip"),
-  fingerBase("左", "leftHand", "薬指", "ring_mcp", "ring_pip"),
-  fingerBase("左", "leftHand", "小指", "pinky_mcp", "pinky_pip"),
-  { kind: "direction", name: "右親指１", parent: "右手首", source: "rightHand", from: "thumb_mcp", to: "thumb_ip", bend: THUMB_BEND["右"] },
-  fingerBase("右", "rightHand", "人指", "index_mcp", "index_pip"),
-  fingerBase("右", "rightHand", "中指", "middle_mcp", "middle_pip"),
-  fingerBase("右", "rightHand", "薬指", "ring_mcp", "ring_pip"),
-  fingerBase("右", "rightHand", "小指", "pinky_mcp", "pinky_pip"),
-
-  // Distal joints follow the base joint's bend at a fixed ratio (kept simple on
-  // purpose — works well in practice and is robust to noisy fingertip landmarks).
-  { kind: "fingerRatio", name: "左親指２", base: "左親指１", bendAxis: new Vec3(-1, -1, 0).normalize(), ratio: 0.85 },
-  ...fingerCurl("左", "人指", new Vec3(-0.031, 0, -0.993).normalize(), [0.9, 0.65]),
-  ...fingerCurl("左", "中指", new Vec3(0.03, 0, -0.996).normalize(), [0.9, 0.65]),
-  ...fingerCurl("左", "薬指", new Vec3(0.048, 0, 0.997).normalize(), [0.88, 0.6]),
-  ...fingerCurl("左", "小指", new Vec3(0.088, 0, -0.997).normalize(), [0.85, 0.55]),
-  { kind: "fingerRatio", name: "右親指２", base: "右親指１", bendAxis: new Vec3(-1, 1, 0).normalize(), ratio: 0.85 },
-  ...fingerCurl("右", "人指", new Vec3(-0.031, 0, 0.993).normalize(), [0.9, 0.65]),
-  ...fingerCurl("右", "中指", new Vec3(0.03, 0, 0.996).normalize(), [0.9, 0.65]),
-  ...fingerCurl("右", "薬指", new Vec3(0.048, 0, 0.997).normalize(), [0.88, 0.6]),
-  ...fingerCurl("右", "小指", new Vec3(0.088, 0, 0.997).normalize(), [0.85, 0.55]),
-]
-
-const DEF_BY_NAME: Record<string, BoneDef> = Object.fromEntries(BONE_DEFS.map((d) => [d.name, d]))
-
-/** Solved geometrically rather than from landmark directions. */
-const GROUNDING_BONES = ["センター", "左足ＩＫ", "右足ＩＫ"] as const
-/** Derived from the arm rather than from landmarks: MediaPipe's shoulder point
- *  is the joint itself, which says nothing about clavicle elevation. */
-const SHOULDER_BONES = ["左肩", "右肩"] as const
+import { HandIndexTable, PoseLandmarksTable } from "../constants/landmarks"
+import type {
+  BodyCollider, BoneState, SolverInput,
+  LandmarkSource, Point, BasisDef, BendLimit,
+  DirectionDef, TwistDef, FingerRatioDef, BoneDef, XYZ
+} from "@/types/solver"
+import {
+  DEG,
+  BONE_DEFS, DEF_BY_NAME,
+  GROUNDING_BONES, SHOULDER_BONES,
+  DEFAULT_REFS,
+  WITNESS_REST,
+  BASIS_LANDMARKS,
+  MIN_VISIBILITY, WITNESS_FADE_LO, WITNESS_FADE_HI,
+} from "@/constants/bones"
 
 // Scratch for the clearance pass — it runs per arm, per frame.
 const _clearA = Quat.identity()
@@ -223,92 +26,6 @@ const _clearFrom = new Vec3(0, 0, 0)
 const _gA = new Vec3(0, 0, 0)
 const _gB = new Vec3(0, 0, 0)
 const _clearTo = new Vec3(0, 0, 0)
-
-/** Pose landmarks each basis bone reads, for visibility gating. */
-const BASIS_LANDMARKS: Record<string, string[]> = {
-  上半身: ["left_shoulder", "right_shoulder"],
-  下半身: ["left_hip", "right_hip", "left_shoulder", "right_shoulder"],
-  頭: ["left_ear", "right_ear", "left_eye", "right_eye"],
-}
-
-// Below this average visibility the measurement is noise (limb off-frame or
-// occluded) — hold the last solved rotation instead of chasing garbage.
-const MIN_VISIBILITY = 0.35
-
-// Witness blend: sine of the child-joint bend angle below which roll is
-// unobservable (straight limb) and we fall back to shortest-arc.
-const WITNESS_FADE_LO = 0.15
-const WITNESS_FADE_HI = 0.35
-
-// Canonical rest bend planes in parent-local frame. MMD rest poses have straight
-// elbows/knees, so the rest child direction can't serve as the roll reference —
-// instead anchor to anatomy: elbows flex forward (−Z), knees flex backward (+Z).
-const WITNESS_REST: Record<string, Vec3> = {
-  左腕: new Vec3(0, 0, -1),
-  右腕: new Vec3(0, 0, -1),
-  左足: new Vec3(0, 0, 1),
-  右足: new Vec3(0, 0, 1),
-}
-
-// ---------------------------------------------------------------------------
-// Rest-pose calibration
-// ---------------------------------------------------------------------------
-
-// Bones whose rest world positions calibrate() reads. Caller queries each
-// from the loaded MMD model and passes them as `restWorldPos`.
-export const SOLVER_REST_BONES: readonly string[] = [
-  "左足", "右足", "左ひざ", "右ひざ", "左足首", "右足首",
-  "左つま先", "右つま先",
-  "首", "頭", "左肩", "右肩", "左目", "右目",
-  "上半身", "上半身2", "下半身",
-  "センター", "左足ＩＫ", "右足ＩＫ",
-  "左腕", "右腕", "左ひじ", "右ひじ", "左手首", "右手首",
-  "左中指１", "右中指１",
-  "左親指１", "左親指２", "右親指１", "右親指２",
-  "左人指１", "左人指２", "右人指１", "右人指２",
-  "左中指２", "右中指２",
-  "左薬指１", "左薬指２", "右薬指１", "右薬指２",
-  "左小指１", "左小指２", "右小指１", "右小指２",
-]
-
-// Fallback reference directions in each bone's parent-local frame at rest.
-// `Solver.calibrate()` overrides any of these from the loaded model's rest pose.
-// 左手捩/右手捩 use a canonical hand-local axis that calibrate() can't derive
-// from bones, so they always come from here.
-const DEFAULT_REFS: Record<string, Vec3> = {
-  左腕: new Vec3(0.80917156, -0.58753001, -0.00706277).normalize(),
-  右腕: new Vec3(-0.80917129, -0.58753035, -0.00706463).normalize(),
-  左ひじ: new Vec3(0.80886214, -0.58772615, -0.01788871).normalize(),
-  右ひじ: new Vec3(-0.80886264, -0.58772542, -0.01789011).normalize(),
-  左足: new Vec3(-0.01338665, -0.99819434, 0.05855645).normalize(),
-  右足: new Vec3(0.01338609, -0.99819433, 0.05855677).normalize(),
-  左ひざ: new Vec3(-0.01333798, -0.98954426, 0.14361147).normalize(),
-  右ひざ: new Vec3(0.01333724, -0.98954425, 0.14361163).normalize(),
-  左足首: new Vec3(0.00000064, -0.80765191, -0.58965955).normalize(),
-  右足首: new Vec3(0.00000054, -0.80765185, -0.58965964).normalize(),
-  首: new Vec3(0.00000258, 0.97346054, -0.22885491).normalize(),
-  左手首: new Vec3(0.81635913, -0.57754444, -0.00043314).normalize(),
-  右手首: new Vec3(-0.81635927, -0.57754425, -0.00043491).normalize(),
-  左親指１: new Vec3(0.62716533, -0.72577692, -0.28268623).normalize(),
-  右親指１: new Vec3(-0.62716428, -0.72578107, -0.28267792).normalize(),
-  左人指１: new Vec3(0.84121176, -0.54001806, 0.02726296).normalize(),
-  右人指１: new Vec3(-0.84121092, -0.54001943, 0.02726177).normalize(),
-  左中指１: new Vec3(0.82851523, -0.55942638, 0.0245895).normalize(),
-  右中指１: new Vec3(-0.82851643, -0.55942465, 0.02458833).normalize(),
-  左薬指１: new Vec3(0.80448878, -0.59258445, 0.04051516).normalize(),
-  右薬指１: new Vec3(-0.8044868, -0.59258726, 0.04051333).normalize(),
-  左小指１: new Vec3(0.86110206, -0.49661517, 0.10897986).normalize(),
-  右小指１: new Vec3(-0.86110169, -0.49661597, 0.10897917).normalize(),
-  // 左手捩/右手捩: canonical hand-local axis used for wrist twist roll extraction.
-  左手捩: new Vec3(0, 0, -1),
-  右手捩: new Vec3(0, 0, -1),
-}
-
-interface XYZ {
-  x: number
-  y: number
-  z: number
-}
 
 // Scratch registers — the entire per-frame solve allocates nothing.
 const sFrom = Vec3.zeros()
@@ -1054,7 +771,13 @@ export class Solver {
     const from = this.point(def.source, def.from, sFrom)
     const to = this.point(def.source, def.to, sTo)
     if (!from || !to) return
-    if (this.visibility(def.source, [def.from, def.to]) < MIN_VISIBILITY) return
+    if (this.visibility(def.source, [def.from, def.to]) < MIN_VISIBILITY) {
+      const parentWorld = def.parent ? this.worlds[def.parent] : null
+      if (parentWorld) {
+        out.set(Quat.identity())
+        return
+      }
+    }
 
     Vec3.subtractInto(to, from, sDir)
     const parentWorld = def.parent ? this.worlds[def.parent] : null
@@ -1064,7 +787,8 @@ export class Solver {
 
     Quat.fromUnitVectorsInto(this.getRef(def.name), sDir, out)
 
-    if (def.witness && this.witnessEnabled) this.applyWitness(def, parentWorld, out)
+    //if (def.witness && this.witnessEnabled) this.applyWitness(def, parentWorld, out)
+    //if (def.bend && this.bendClampEnabled) Solver.clampBend(def.bend, out)
     if (def.bend && this.bendClampEnabled) Solver.clampBend(def.bend, out)
   }
 

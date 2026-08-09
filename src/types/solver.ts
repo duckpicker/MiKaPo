@@ -1,0 +1,84 @@
+import { Landmark } from "@mediapipe/tasks-vision"
+import { Quat, Vec3 } from "reze-engine"
+
+// ── Public interfaces (consumed by main-scene, motion-capture) ──
+
+export interface BodyCollider {
+  bone: string
+  /** 0 sphere, 1 box, 2 capsule (PMX order). */
+  shape: number
+  size: XYZ
+  /** Rest-pose world position from the PMX. */
+  position: XYZ
+}
+
+export interface BoneState {
+  name: string
+  rotation: Quat
+  /** Only bones that MOVE carry this. */
+  translation?: Vec3
+}
+
+export interface SolverInput {
+  poseWorldLandmarks: Landmark[][]
+  leftHandWorldLandmarks: Landmark[][]
+  rightHandWorldLandmarks: Landmark[][]
+}
+
+// ── Bone definition types (internal to solver) ──
+
+export type LandmarkSource = "pose" | "leftHand" | "rightHand"
+export type Point = string | [string, string]
+
+export interface BasisDef {
+  kind: "basis"
+  name: "上半身" | "下半身" | "頭"
+  parent: string | null
+}
+
+export interface BendLimit {
+  axis: Vec3
+  min: number
+  max: number
+  spreadMax: number
+}
+
+export interface DirectionDef {
+  kind: "direction"
+  name: string
+  parent: string | null
+  source: LandmarkSource
+  from: Point
+  to: Point
+  witness?: string
+  rollFallback?: string
+  bend?: BendLimit
+}
+
+export interface TwistDef {
+  kind: "twist"
+  name: string
+  parent: string
+  source: LandmarkSource
+  from: string
+  to: string
+  axisRef: string
+}
+
+export interface FingerRatioDef {
+  kind: "fingerRatio"
+  name: string
+  base: string
+  bendAxis: Vec3
+  ratio: number
+}
+
+export type BoneDef = BasisDef | DirectionDef | TwistDef | FingerRatioDef
+
+// ── XYZ (plain object, not Vec3 class) ──
+
+export interface XYZ {
+  x: number
+  y: number
+  z: number
+}

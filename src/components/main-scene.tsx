@@ -23,8 +23,9 @@ import Loading from "./loading"
 /** The captured clip is registered under its own name and never played, so
  *  exporting cannot disturb the pose the user is driving live. */
 const EXPORT_CLIP_NAME = "mikapo-capture"
-import { BoneState, SOLVER_REST_BONES, type BodyCollider } from "@/lib/solver"
 import { FaceSolverResult } from "@/lib/face-blendshape-solver"
+import {BodyCollider, BoneState} from "@/types/solver";
+import {SOLVER_REST_BONES} from "@/constants/bones";
 
 /** Stable engine key for the bundled default PMX — folder uploads swap via removeModel + new id. */
 const DEFAULT_MODEL_KEY = "mikapo"

@@ -1,32 +1,8 @@
 /// <reference lib="webworker" />
-// MediaPipe holistic detection worker. Detection takes ~20-30ms per frame; on
-// the main thread that blocked the WebGPU render loop and capped the app at
-// ~20 FPS. Here it shares nothing with rendering — frames arrive as transferred
-// ImageBitmaps, results go back as plain landmark arrays.
-import { FilesetResolver, HolisticLandmarker, HolisticLandmarkerResult } from "@mediapipe/tasks-vision"
 
-export type PoseWorkerRequest =
-  | { type: "init" }
-  | { type: "mode"; running: "VIDEO" | "IMAGE" }
-  | { type: "video"; bitmap: ImageBitmap; ts: number; mediaTs: number }
-  | { type: "image"; bitmap: ImageBitmap; mediaTs: number }
-  | { type: "reset" }
-
-/** Subset of HolisticLandmarkerResult the app consumes (structured-clone friendly).
- * Face ships as mesh landmarks: the blendshape subgraph doesn't run on the
- * holistic GPU delegate ("No support of const"), so the face solver measures
- * geometry on the mesh instead. */
-export interface PoseWorkerResult {
-  poseWorldLandmarks: HolisticLandmarkerResult["poseWorldLandmarks"]
-  leftHandWorldLandmarks: HolisticLandmarkerResult["leftHandWorldLandmarks"]
-  rightHandWorldLandmarks: HolisticLandmarkerResult["rightHandWorldLandmarks"]
-  faceLandmarks: HolisticLandmarkerResult["faceLandmarks"]
-}
-
-export type PoseWorkerResponse =
-  | { type: "ready" }
-  | { type: "result"; result: PoseWorkerResult; mediaTs: number }
-  | { type: "error"; message: string }
+import { FilesetResolver, HolisticLandmarker, type HolisticLandmarkerResult } from "@mediapipe/tasks-vision"
+import type { PoseWorkerRequest, PoseWorkerResponse } from "@/types/pose-worker"
+import { MEDIAPIPE_WASM_URL, HOLISTIC_CREATE_OPTIONS } from "@/constants/mediapipe"
 
 let landmarker: HolisticLandmarker | null = null
 let runningMode: "VIDEO" | "IMAGE" = "VIDEO"
@@ -42,39 +18,25 @@ const emit = (result: HolisticLandmarkerResult, mediaTs: number) => {
       leftHandWorldLandmarks: result.leftHandWorldLandmarks,
       rightHandWorldLandmarks: result.rightHandWorldLandmarks,
       faceLandmarks: result.faceLandmarks,
+      faceBlendshapes: result.faceBlendshapes,
     },
   })
 }
 
 async function init(): Promise<void> {
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm",
-  )
-
-  const createOptions = {
-    baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task",
-      delegate: "GPU" as const,
-    },
-    minPosePresenceConfidence: 0.7,
-    minPoseDetectionConfidence: 0.7,
-    minFaceDetectionConfidence: 0.4,
-    minHandLandmarksConfidence: 0.95,
-    runningMode: "VIDEO" as const,
-  }
+  const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL)
 
   try {
-    landmarker = await HolisticLandmarker.createFromOptions(vision, createOptions)
+    landmarker = await HolisticLandmarker.createFromOptions(vision, { ...HOLISTIC_CREATE_OPTIONS })
   } catch (gpuError) {
     console.warn("GPU delegate failed in worker, falling back to CPU:", gpuError)
     landmarker = await HolisticLandmarker.createFromOptions(vision, {
-      ...createOptions,
-      baseOptions: { ...createOptions.baseOptions, delegate: "CPU" },
+      ...HOLISTIC_CREATE_OPTIONS,
+      baseOptions: { ...HOLISTIC_CREATE_OPTIONS.baseOptions, delegate: "CPU" },
     })
   }
 
-  // Warm up: force shader compilation / tensor allocation before the first real frame.
+  // Warm up: force shader compilation / tensor allocation before the first real frame
   try {
     const canvas = new OffscreenCanvas(256, 256)
     const ctx = canvas.getContext("2d")
@@ -82,9 +44,7 @@ async function init(): Promise<void> {
       ctx.fillStyle = "#808080"
       ctx.fillRect(0, 0, 256, 256)
     }
-    await new Promise<void>((resolve) => {
-      landmarker!.detectForVideo(canvas, performance.now(), () => resolve())
-    })
+    landmarker!.detectForVideo(canvas, performance.now())
   } catch (warmupError) {
     console.warn("MediaPipe warmup failed (non-fatal):", warmupError)
   }
@@ -106,11 +66,6 @@ self.onmessage = async (e: MessageEvent<PoseWorkerRequest>) => {
         }
         break
       case "reset":
-        // Between stills, the landmarker must forget the previous one. Its
-        // graph carries tracker state even in IMAGE mode, so two uploads in a
-        // row show the second easing out of the first — visible in the raw
-        // landmarks, before any solving. setOptions rebuilds the graph, which
-        // is the documented way to clear it without rebuilding the model.
         if (landmarker) await landmarker.setOptions({ runningMode })
         break
       case "video":

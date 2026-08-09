@@ -1,76 +1,18 @@
 import { NormalizedLandmark } from "@mediapipe/tasks-vision"
 import { Quat } from "reze-engine"
-import { BoneState } from "./solver"
 import { OneEuroFilter } from "./filters"
-
-/** Morph weights keyed by the loaded model's actual morph names. */
-export type FaceMorphWeights = Record<string, number>
-
-export interface FaceSolverResult {
-  boneStates: BoneState[]
-  morphWeights: FaceMorphWeights
-}
-
-// Geometric face solver: eye/mouth ratios measured directly on the MediaPipe
-// face mesh. (MediaPipe's ARKit blendshape output would be the cleaner source,
-// but the blendshape subgraph doesn't run on the holistic GPU delegate —
-// "No support of const" — so the landmark geometry stays the driver.)
-
-/**
- * Face landmark indices from MediaPipe 478-point face mesh
- */
-const FaceIndex = {
-  // Left eye (from camera's perspective, so appears on right side of image)
-  LeftEyeUpper: 159,
-  LeftEyeLower: 145,
-  LeftEyeLeft: 33,
-  LeftEyeRight: 133,
-  LeftEyeIris: 468,
-
-  // Right eye (from camera's perspective, so appears on left side of image)
-  RightEyeUpper: 386,
-  RightEyeLower: 374,
-  RightEyeLeft: 362,
-  RightEyeRight: 263,
-  RightEyeIris: 473,
-
-  // Mouth
-  UpperLipTop: 13,
-  LowerLipBottom: 14,
-  MouthLeft: 61,
-  MouthRight: 291,
-} as const
-
-/** Canonical MMD morph names driven by this solver, with per-model aliases. */
-const MORPH_ALIASES: Record<string, string[]> = {
-  まばたき: ["瞬き"],
-  ウィンク: ["ウィンク２"],
-  ウィンク右: ["ウィンク右２", "ウインク右"],
-  あ: ["あ２"],
-  ワ: ["にっこり", "にやり"],
-}
-
-/** What counts as an expression. Ratios measured on the MediaPipe face mesh. */
-export interface FaceThresholds {
-  /** Eye aspect ratio at or above which the eye reads fully open. */
-  eyeOpen: number
-  /** ...and at or below which it reads fully closed. Between them, a ramp. */
-  eyeClosed: number
-  /** Mouth-height ratio a closed mouth stays under. */
-  mouthOpen: number
-  /** Mouth-corner spread before a smile registers. */
-  smile: number
-}
-
-export const DEFAULT_FACE_THRESHOLDS: FaceThresholds = {
-  eyeOpen: 0.3,
-  eyeClosed: 0.1,
-  mouthOpen: 0.18,
-  smile: 0.008,
-}
+import type { BoneState } from "@/types/solver"
+import type { FaceSolverResult, FaceMorphWeights, FaceThresholds } from "@/types/face"
+import {
+  FACE_INDEX,
+  MORPH_ALIASES,
+  DEFAULT_FACE_THRESHOLDS,
+  FACE_FILTER_FAST,
+  FACE_FILTER_GAZE,
+} from "@/constants/face"
+export { DEFAULT_FACE_THRESHOLDS }
 
 export class FaceBlendshapeSolver {
-  /** canonical → actual morph name on the loaded model. */
   private morphNames: Record<string, string>
   private thresholds: FaceThresholds = { ...DEFAULT_FACE_THRESHOLDS }
 
@@ -78,40 +20,27 @@ export class FaceBlendshapeSolver {
     this.thresholds = { ...this.thresholds, ...next }
   }
 
-  /** Every morph this solver drives, at rest. Switching face capture off has to
-   *  WRITE these — leaving the morphs alone would freeze the model on whatever
-   *  expression it happened to be wearing. */
   restWeights(): FaceMorphWeights {
     const n = this.morphNames
     return { [n["まばたき"]]: 0, [n["ウィンク"]]: 0, [n["ウィンク右"]]: 0, [n["あ"]]: 0, [n["ワ"]]: 0 }
   }
 
-  /** Last solved expression levels, 0–1, under canonical names. What the tuning
-   *  UI meters — the morph weights themselves, so a threshold drag is visible as
-   *  the bar it moves rather than as a number with no reference. */
   private levels = { blink: 0, mouth: 0, smile: 0 }
   getLevels(): { blink: number; mouth: number; smile: number } {
     return this.levels
   }
 
-  // One-Euro per channel: snappier than the old EMA for fast events (blinks)
-  // while still suppressing landmark flutter at rest.
-  private leftOpenFilter = new OneEuroFilter(2.0, 15, 1.0)
-  private rightOpenFilter = new OneEuroFilter(2.0, 15, 1.0)
-  private mouthFilter = new OneEuroFilter(2.0, 15, 1.0)
-  private smileFilter = new OneEuroFilter(2.0, 15, 1.0)
-  private gazeXFilter = new OneEuroFilter(2.0, 10, 1.0)
-  private gazeYFilter = new OneEuroFilter(2.0, 10, 1.0)
+  private leftOpenFilter = new OneEuroFilter(...Object.values(FACE_FILTER_FAST) as [number, number, number])
+  private rightOpenFilter = new OneEuroFilter(...Object.values(FACE_FILTER_FAST) as [number, number, number])
+  private mouthFilter = new OneEuroFilter(...Object.values(FACE_FILTER_FAST) as [number, number, number])
+  private smileFilter = new OneEuroFilter(...Object.values(FACE_FILTER_FAST) as [number, number, number])
+  private gazeXFilter = new OneEuroFilter(...Object.values(FACE_FILTER_GAZE) as [number, number, number])
+  private gazeYFilter = new OneEuroFilter(...Object.values(FACE_FILTER_GAZE) as [number, number, number])
 
   constructor() {
     this.morphNames = Object.fromEntries(Object.keys(MORPH_ALIASES).map((n) => [n, n]))
   }
 
-  /**
-   * Resolve canonical morph names against the loaded model's actual morph list
-   * (names vary across models). Unresolved names stay canonical — the engine
-   * ignores unknown morphs, same graceful degradation as before.
-   */
   configure(availableMorphs: string[]): void {
     const available = new Set(availableMorphs)
     for (const canonical of Object.keys(MORPH_ALIASES)) {
@@ -149,14 +78,14 @@ export class FaceBlendshapeSolver {
 
     // Eye gaze from iris position relative to eye corners
     const leftEyeGaze = this.calculateEyeGaze(
-      faceLandmarks[FaceIndex.LeftEyeLeft],
-      faceLandmarks[FaceIndex.LeftEyeRight],
-      faceLandmarks[FaceIndex.LeftEyeIris],
+      faceLandmarks[FACE_INDEX.LeftEyeLeft],
+      faceLandmarks[FACE_INDEX.LeftEyeRight],
+      faceLandmarks[FACE_INDEX.LeftEyeIris],
     )
     const rightEyeGaze = this.calculateEyeGaze(
-      faceLandmarks[FaceIndex.RightEyeLeft],
-      faceLandmarks[FaceIndex.RightEyeRight],
-      faceLandmarks[FaceIndex.RightEyeIris],
+      faceLandmarks[FACE_INDEX.RightEyeLeft],
+      faceLandmarks[FACE_INDEX.RightEyeRight],
+      faceLandmarks[FACE_INDEX.RightEyeIris],
     )
 
     const gazeX = this.gazeXFilter.filter((leftEyeGaze.x + rightEyeGaze.x) / 2, timestampMs)
@@ -167,38 +96,38 @@ export class FaceBlendshapeSolver {
     // the model eye on screen-left).
     const leftEyeOpenness = this.leftOpenFilter.filter(
       this.calculateEyeOpenness(
-        faceLandmarks[FaceIndex.RightEyeLeft],
-        faceLandmarks[FaceIndex.RightEyeRight],
-        faceLandmarks[FaceIndex.RightEyeUpper],
-        faceLandmarks[FaceIndex.RightEyeLower],
+        faceLandmarks[FACE_INDEX.RightEyeLeft],
+        faceLandmarks[FACE_INDEX.RightEyeRight],
+        faceLandmarks[FACE_INDEX.RightEyeUpper],
+        faceLandmarks[FACE_INDEX.RightEyeLower],
       ),
       timestampMs,
     )
     const rightEyeOpenness = this.rightOpenFilter.filter(
       this.calculateEyeOpenness(
-        faceLandmarks[FaceIndex.LeftEyeLeft],
-        faceLandmarks[FaceIndex.LeftEyeRight],
-        faceLandmarks[FaceIndex.LeftEyeUpper],
-        faceLandmarks[FaceIndex.LeftEyeLower],
+        faceLandmarks[FACE_INDEX.LeftEyeLeft],
+        faceLandmarks[FACE_INDEX.LeftEyeRight],
+        faceLandmarks[FACE_INDEX.LeftEyeUpper],
+        faceLandmarks[FACE_INDEX.LeftEyeLower],
       ),
       timestampMs,
     )
 
     const mouthOpenness = this.mouthFilter.filter(
       this.calculateMouthOpenness(
-        faceLandmarks[FaceIndex.UpperLipTop],
-        faceLandmarks[FaceIndex.LowerLipBottom],
-        faceLandmarks[FaceIndex.MouthLeft],
-        faceLandmarks[FaceIndex.MouthRight],
+        faceLandmarks[FACE_INDEX.UpperLipTop],
+        faceLandmarks[FACE_INDEX.LowerLipBottom],
+        faceLandmarks[FACE_INDEX.MouthLeft],
+        faceLandmarks[FACE_INDEX.MouthRight],
       ),
       timestampMs,
     )
     const smile = this.smileFilter.filter(
       this.calculateSmile(
-        faceLandmarks[FaceIndex.UpperLipTop],
-        faceLandmarks[FaceIndex.LowerLipBottom],
-        faceLandmarks[FaceIndex.MouthLeft],
-        faceLandmarks[FaceIndex.MouthRight],
+        faceLandmarks[FACE_INDEX.UpperLipTop],
+        faceLandmarks[FACE_INDEX.LowerLipBottom],
+        faceLandmarks[FACE_INDEX.MouthLeft],
+        faceLandmarks[FACE_INDEX.MouthRight],
       ),
       timestampMs,
     )
