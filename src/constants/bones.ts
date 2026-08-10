@@ -1,5 +1,6 @@
 import { Vec3 } from "reze-engine"
 import type { BoneDef, BendLimit, DirectionDef, LandmarkSource } from "../types/solver"
+import { BoneGroup } from "@/configuration/types";
 
 // ── Shared helpers ──
 
@@ -131,10 +132,10 @@ export const SOLVER_REST_BONES: readonly string[] = [
 // ── Default reference directions ──
 
 export const DEFAULT_REFS: Record<string, Vec3> = {
-  左腕: new Vec3(0, -1, 0).normalize(),
-  右腕: new Vec3(0, -1, 0).normalize(),
-  左ひじ: new Vec3(0, -1, 0).normalize(),
-  右ひじ: new Vec3(0, -1, 0).normalize(),
+  左腕: new Vec3(0.80917156, -0.58753001, -0.00706277).normalize(),
+  右腕: new Vec3(-0.80917129, -0.58753035, -0.00706463).normalize(),
+  左ひじ: new Vec3(0.80886214, -0.58772615, -0.01788871).normalize(),
+  右ひじ: new Vec3(-0.80886264, -0.58772542, -0.01789011).normalize(),
   左足: new Vec3(-0.01338665, -0.99819434, 0.05855645).normalize(),
   右足: new Vec3(0.01338609, -0.99819433, 0.05855677).normalize(),
   左ひざ: new Vec3(-0.01333798, -0.98954426, 0.14361147).normalize(),
@@ -173,6 +174,28 @@ export const BASIS_LANDMARKS: Record<string, string[]> = {
   頭: ["left_ear", "right_ear", "left_eye", "right_eye"],
 }
 
-export const MIN_VISIBILITY = 0.0
+export const MIN_VISIBILITY = 0.05
 export const WITNESS_FADE_LO = 0.15
 export const WITNESS_FADE_HI = 0.35
+
+export const BONE_GROUP_MEMBERS: Record<BoneGroup, string[]> = {
+  head: ["首", "頭", "左目", "右目"],
+  upperTorso: ["上半身", "左肩", "右肩"],
+  lowerTorso: ["下半身"],
+  leftArm: ["左腕", "左ひじ", "左手捩", "左手首"],
+  rightArm: ["右腕", "右ひじ", "右手捩", "右手首"],
+  leftLeg: ["左足", "左ひざ", "左足首"],
+  rightLeg: ["右足", "右ひざ", "右足首"],
+  fingers: [
+    "左親指１", "左親指２",
+    "左人指１", "左人指２", "左人指３",
+    "左中指１", "左中指２", "左中指３",
+    "左薬指１", "左薬指２", "左薬指３",
+    "左小指１", "左小指２", "左小指３",
+    "右親指１", "右親指２",
+    "右人指１", "右人指２", "右人指３",
+    "右中指１", "右中指２", "右中指３",
+    "右薬指１", "右薬指２", "右薬指３",
+    "右小指１", "右小指２", "右小指３",
+  ],
+}

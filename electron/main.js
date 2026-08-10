@@ -8,8 +8,8 @@ let tray = null;
 function createTray() {
   tray = new Tray(path.join(__dirname, '../public/favicon.png'));
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Показать', click: () => mainWindow?.show() },
-    { label: 'Выход', click: () => app.quit() }
+    { label: 'Show', click: () => mainWindow?.show() },
+    { label: 'Exit', click: () => app.quit() }
   ]);
   tray.setContextMenu(contextMenu);
 }
@@ -35,7 +35,7 @@ function createWindow() {
         hardResetMethod: 'exit'
       });
     } catch (e) {
-      console.log('electron-reload не загружен');
+      console.log(`electron-reload load error ${e.message}`);
     }
   } else {
     mainWindow.loadFile(path.join(__dirname, '../out/index.html'));

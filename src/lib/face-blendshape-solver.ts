@@ -26,6 +26,13 @@ export class FaceBlendshapeSolver {
   }
 
   private levels = { blink: 0, mouth: 0, smile: 0 }
+
+  private enabled = true
+  private smoothingScale = { eyes: 0.5, mouth: 0.5, smile: 0.5 }
+  private gazeEnabled = true
+  private gazeStrength = 1.0
+  private morphEnabled = { blink: true, wink: true, mouth: true, smile: true }
+
   getLevels(): { blink: number; mouth: number; smile: number } {
     return this.levels
   }
@@ -72,7 +79,7 @@ export class FaceBlendshapeSolver {
     }
 
     // Highest index we use is 473 (RightEyeIris)
-    if (!faceLandmarks || faceLandmarks.length < 474) {
+    if (!this.enabled || !faceLandmarks || faceLandmarks.length < 474) {
       return defaultResult
     }
 
@@ -142,11 +149,11 @@ export class FaceBlendshapeSolver {
     ]
 
     const morphWeights: FaceMorphWeights = {
-      [names["まばたき"]]: (leftBlink + rightBlink) / 2,
-      [names["ウィンク"]]: leftBlink > 0.5 && rightBlink < 0.3 ? leftBlink : 0,
-      [names["ウィンク右"]]: rightBlink > 0.5 && leftBlink < 0.3 ? rightBlink : 0,
-      [names["あ"]]: mouthOpenness,
-      [names["ワ"]]: smile,
+      [names["まばたき"]]: this.morphEnabled.blink ? (leftBlink + rightBlink) / 2 : 0,
+      [names["ウィンク"]]: this.morphEnabled.wink && leftBlink > 0.5 && rightBlink < 0.3 ? leftBlink : 0,
+      [names["ウィンク右"]]: this.morphEnabled.wink && rightBlink > 0.5 && leftBlink < 0.3 ? rightBlink : 0,
+      [names["あ"]]: this.morphEnabled.mouth ? mouthOpenness : 0,
+      [names["ワ"]]: this.morphEnabled.smile ? smile : 0,
     }
 
     this.levels = { blink: (leftBlink + rightBlink) / 2, mouth: mouthOpenness, smile }
@@ -182,12 +189,11 @@ export class FaceBlendshapeSolver {
   }
 
   private calculateEyeRotation(gazeX: number, gazeY: number): Quat {
-    const maxHorizontalRotation = Math.PI / 6 // 30 degrees
-    const maxVerticalRotation = Math.PI / 12 // 15 degrees
-
+    if (!this.gazeEnabled) return Quat.identity()
+    const maxHorizontalRotation = Math.PI / 6 * this.gazeStrength
+    const maxVerticalRotation = Math.PI / 12 * this.gazeStrength
     const xRotation = gazeY * maxVerticalRotation
     const yRotation = -gazeX * maxHorizontalRotation
-
     return Quat.fromEuler(xRotation, yRotation, 0)
   }
 
@@ -281,5 +287,22 @@ export class FaceBlendshapeSolver {
 
   private clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value))
+  }
+
+  setEnabled(on: boolean): void { this.enabled = on }
+
+  setSmoothing(s: { eyes: number; mouth: number; smile: number }): void {
+    this.smoothingScale = s
+    this.leftOpenFilter = new OneEuroFilter(0.5 + s.eyes * 3, 5 + s.eyes * 20, 1.0)
+    this.rightOpenFilter = new OneEuroFilter(0.5 + s.eyes * 3, 5 + s.eyes * 20, 1.0)
+    this.mouthFilter = new OneEuroFilter(0.5 + s.mouth * 3, 5 + s.mouth * 20, 1.0)
+    this.smileFilter = new OneEuroFilter(0.5 + s.smile * 3, 5 + s.smile * 20, 1.0)
+  }
+
+  setGazeEnabled(on: boolean): void { this.gazeEnabled = on }
+  setGazeStrength(s: number): void { this.gazeStrength = s }
+
+  setMorphEnabled(morph: "blink" | "wink" | "mouth" | "smile", on: boolean): void {
+    this.morphEnabled[morph] = on
   }
 }

@@ -176,6 +176,7 @@ export class Solver {
    * thickness. Without this the solver still runs — it simply has no idea the
    * character occupies space, which is the 穿模 everyone reports.
    */
+
   calibrateColliders(
     colliders: BodyCollider[],
     rest: Record<string, XYZ>,
