@@ -1,11 +1,9 @@
 import { Landmark } from "@mediapipe/tasks-vision"
 import { Quat, Vec3 } from "reze-engine"
 
-// ── Public interfaces (consumed by main-scene, motion-capture) ──
 
 export interface BodyCollider {
   bone: string
-  /** 0 sphere, 1 box, 2 capsule (PMX order). */
   shape: number
   size: XYZ
   /** Rest-pose world position from the PMX. */
@@ -25,7 +23,6 @@ export interface SolverInput {
   rightHandWorldLandmarks: Landmark[][]
 }
 
-// ── Bone definition types (internal to solver) ──
 
 export type LandmarkSource = "pose" | "leftHand" | "rightHand"
 export type Point = string | [string, string]
@@ -75,7 +72,6 @@ export interface FingerRatioDef {
 
 export type BoneDef = BasisDef | DirectionDef | TwistDef | FingerRatioDef
 
-// ── XYZ (plain object, not Vec3 class) ──
 
 export interface XYZ {
   x: number

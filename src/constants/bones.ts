@@ -2,7 +2,6 @@ import { Vec3 } from "reze-engine"
 import type { BoneDef, BendLimit, DirectionDef, LandmarkSource } from "../types/solver"
 import { BoneGroup } from "@/configuration/types";
 
-// ── Shared helpers ──
 
 export const DEG = Math.PI / 180
 
@@ -43,52 +42,43 @@ export const fingerBase = (
   bend: FINGER_BEND[side],
 })
 
-// ── Bone definitions ──
 
 export const BONE_DEFS: BoneDef[] = [
-  // Torso & head
   { kind: "basis", name: "上半身", parent: null },
   { kind: "direction", name: "首", parent: "上半身", source: "pose", from: ["left_shoulder", "right_shoulder"], to: ["left_ear", "right_ear"] },
   { kind: "basis", name: "頭", parent: "首" },
   { kind: "basis", name: "下半身", parent: null },
 
-  // Left leg
   { kind: "direction", name: "左足", parent: "下半身", source: "pose", from: "left_hip", to: "left_knee", witness: "左ひざ", rollFallback: "左足首" },
   { kind: "direction", name: "左ひざ", parent: "左足", source: "pose", from: "left_knee", to: "left_ankle" },
   { kind: "direction", name: "左足首", parent: "左ひざ", source: "pose", from: "left_ankle", to: "left_foot_index" },
 
-  // Right leg
   { kind: "direction", name: "右足", parent: "下半身", source: "pose", from: "right_hip", to: "right_knee", witness: "右ひざ", rollFallback: "右足首" },
   { kind: "direction", name: "右ひざ", parent: "右足", source: "pose", from: "right_knee", to: "right_ankle" },
   { kind: "direction", name: "右足首", parent: "右ひざ", source: "pose", from: "right_ankle", to: "right_foot_index" },
 
-  // Left arm
   { kind: "direction", name: "左腕", parent: "上半身", source: "pose", from: "left_shoulder", to: "left_elbow", witness: "左ひじ" },
   { kind: "direction", name: "左ひじ", parent: "左腕", source: "pose", from: "left_elbow", to: "left_wrist" },
   { kind: "twist", name: "左手捩", parent: "左ひじ", source: "leftHand", from: "ring_mcp", to: "index_mcp", axisRef: "左ひじ" },
   { kind: "direction", name: "左手首", parent: "左手捩", source: "leftHand", from: "wrist", to: "middle_mcp" },
 
-  // Right arm
   { kind: "direction", name: "右腕", parent: "上半身", source: "pose", from: "right_shoulder", to: "right_elbow", witness: "右ひじ" },
   { kind: "direction", name: "右ひじ", parent: "右腕", source: "pose", from: "right_elbow", to: "right_wrist" },
   { kind: "twist", name: "右手捩", parent: "右ひじ", source: "rightHand", from: "ring_mcp", to: "index_mcp", axisRef: "右ひじ" },
   { kind: "direction", name: "右手首", parent: "右手捩", source: "rightHand", from: "wrist", to: "middle_mcp" },
 
-  // Left fingers
   { kind: "direction", name: "左親指１", parent: "左手首", source: "leftHand", from: "thumb_mcp", to: "thumb_ip", bend: THUMB_BEND["左"] },
   fingerBase("左", "leftHand", "人指", "index_mcp", "index_pip"),
   fingerBase("左", "leftHand", "中指", "middle_mcp", "middle_pip"),
   fingerBase("左", "leftHand", "薬指", "ring_mcp", "ring_pip"),
   fingerBase("左", "leftHand", "小指", "pinky_mcp", "pinky_pip"),
 
-  // Right fingers
   { kind: "direction", name: "右親指１", parent: "右手首", source: "rightHand", from: "thumb_mcp", to: "thumb_ip", bend: THUMB_BEND["右"] },
   fingerBase("右", "rightHand", "人指", "index_mcp", "index_pip"),
   fingerBase("右", "rightHand", "中指", "middle_mcp", "middle_pip"),
   fingerBase("右", "rightHand", "薬指", "ring_mcp", "ring_pip"),
   fingerBase("右", "rightHand", "小指", "pinky_mcp", "pinky_pip"),
 
-  // Distal joints (fingerRatio)
   { kind: "fingerRatio", name: "左親指２", base: "左親指１", bendAxis: new Vec3(-1, -1, 0).normalize(), ratio: 0.85 },
   ...fingerCurl("左", "人指", new Vec3(-0.031, 0, -0.993).normalize(), [0.9, 0.65]),
   ...fingerCurl("左", "中指", new Vec3(0.03, 0, -0.996).normalize(), [0.9, 0.65]),
@@ -101,18 +91,15 @@ export const BONE_DEFS: BoneDef[] = [
   ...fingerCurl("右", "小指", new Vec3(0.088, 0, 0.997).normalize(), [0.85, 0.55]),
 ]
 
-// ── Derived lookup ──
 
 export const DEF_BY_NAME: Record<string, BoneDef> = Object.fromEntries(
   BONE_DEFS.map((d) => [d.name, d]),
 )
 
-// ── Special bone groups ──
 
 export const GROUNDING_BONES = ["センター", "左足ＩＫ", "右足ＩＫ"] as const
 export const SHOULDER_BONES = ["左肩", "右肩"] as const
 
-// ── Bones for rest-pose calibration ──
 
 export const SOLVER_REST_BONES: readonly string[] = [
   "左足", "右足", "左ひざ", "右ひざ", "左足首", "右足首",
@@ -129,7 +116,6 @@ export const SOLVER_REST_BONES: readonly string[] = [
   "左小指１", "左小指２", "右小指１", "右小指２",
 ]
 
-// ── Default reference directions ──
 
 export const DEFAULT_REFS: Record<string, Vec3> = {
   左腕: new Vec3(0.80917156, -0.58753001, -0.00706277).normalize(),
@@ -159,7 +145,6 @@ export const DEFAULT_REFS: Record<string, Vec3> = {
   右手捩: new Vec3(0, 0, -1),
 }
 
-// ── Witness & visibility ──
 
 export const WITNESS_REST: Record<string, Vec3> = {
   左腕: new Vec3(0, 0, -1),

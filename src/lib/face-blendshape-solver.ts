@@ -78,12 +78,10 @@ export class FaceBlendshapeSolver {
       },
     }
 
-    // Highest index we use is 473 (RightEyeIris)
     if (!this.enabled || !faceLandmarks || faceLandmarks.length < 474) {
       return defaultResult
     }
 
-    // Eye gaze from iris position relative to eye corners
     const leftEyeGaze = this.calculateEyeGaze(
       faceLandmarks[FACE_INDEX.LeftEyeLeft],
       faceLandmarks[FACE_INDEX.LeftEyeRight],
@@ -99,8 +97,6 @@ export class FaceBlendshapeSolver {
     const gazeY = this.gazeYFilter.filter((leftEyeGaze.y + rightEyeGaze.y) / 2, timestampMs)
     const eyeRotation = this.calculateEyeRotation(gazeX, gazeY)
 
-    // Eye openness — left/right swapped for mirror UX (user's right eye drives
-    // the model eye on screen-left).
     const leftEyeOpenness = this.leftOpenFilter.filter(
       this.calculateEyeOpenness(
         faceLandmarks[FACE_INDEX.RightEyeLeft],
@@ -139,7 +135,6 @@ export class FaceBlendshapeSolver {
       timestampMs,
     )
 
-    // Convert openness to blink (0 = open, 1 = closed)
     const leftBlink = 1 - leftEyeOpenness
     const rightBlink = 1 - rightEyeOpenness
 
@@ -213,7 +208,6 @@ export class FaceBlendshapeSolver {
 
     const aspectRatio = eyeHeight / eyeWidth
 
-    // Less sensitive blink: low closedRatio so eyes need clear closure to trigger
     const openRatio = this.thresholds.eyeOpen
     const closedRatio = this.thresholds.eyeClosed
 
@@ -241,7 +235,6 @@ export class FaceBlendshapeSolver {
 
     if (mouthWidth === 0) return 0
 
-    // High threshold (closed mouth won't trigger), fast ramp-up once open
     const threshold = this.thresholds.mouthOpen
     const ratio = mouthHeight / mouthWidth
 
@@ -262,13 +255,11 @@ export class FaceBlendshapeSolver {
     mouthLeft: NormalizedLandmark,
     mouthRight: NormalizedLandmark,
   ): number {
-    // Mouth corners are higher than center when smiling
     const mouthCenterY = (upperLipTop.y + lowerLipBottom.y) / 2
     const cornerY = (mouthLeft.y + mouthRight.y) / 2
 
     const rawSmile = mouthCenterY - cornerY
 
-    // High threshold before triggering, then ramp up fast
     const threshold = this.thresholds.smile
     if (rawSmile <= threshold) {
       return 0

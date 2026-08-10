@@ -61,6 +61,5 @@ export interface MikapoConfig {
   bones: BoneFilterConfig
   scene: SceneConfig
   smoothing: SmoothingConfig
-  face: FaceConfig
   mediapipe: MediaPipeConfig
 }

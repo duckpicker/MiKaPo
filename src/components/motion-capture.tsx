@@ -3,31 +3,32 @@
 import { useEffect, useRef, useState, useCallback, Suspense, ComponentType, lazy } from "react"
 import { Solver } from "@/lib/solver"
 import { FaceBlendshapeSolver } from "@/lib/face-blendshape-solver"
-import { useMediaPipe, type InputMode } from "@/hooks/useMediaPipe"
+import { useMediaPipe } from "@/hooks/useMediaPipe"
 import { useVideoControls } from "@/hooks/useVideoControls"
 import { useVmdExport } from "@/hooks/useVmdExport"
+import { useBoneFilter } from "@/hooks/useBoneFilter"
+import { useFaceConfig } from "@/hooks/useFaceConfig"
+import { useInputMode } from "@/hooks/useInputMode"
 import { Sidebar } from "./ui/sidebar"
 import { ConfigurationModule } from "@/configuration"
-import type { BoneGroup } from "@/configuration/types"
 import type { BoneState, BodyCollider } from "@/types/solver"
 import type { FaceSolverResult, FaceMorphWeights } from "@/types/face"
 import type { PoseWorkerResult } from "@/types/pose-worker"
 import { buildClip } from "@/lib/vmd"
-import { useLocalStorage } from "@/hooks/useLocalStorage"
-import { BONE_GROUP_MEMBERS } from "@/configuration/bone-filter"
-import { Quat } from "reze-engine"
+import {useSceneConfig} from "@/hooks/useSceneConfig";
+import {Engine, Model} from "reze-engine";
 
 type DebugSceneProps = { landmarks: PoseWorkerResult | null }
 const DebugScene = lazy<ComponentType<DebugSceneProps>>(() => import("./debug-scene"))
 
 const DEBUG_PREVIEW_INTERVAL_MS = 66
-const DEFAULT_BONE_GROUPS: BoneGroup[] = ["head", "upperTorso", "lowerTorso", "leftArm", "rightArm", "leftLeg", "rightLeg", "fingers"]
 
 export const MotionCapture = ({
-                                applyPose, applyFace, modelLoaded, onMediaPipeReadyChange, resetModel,
-                                restPose, colliders, modelMorphs, exportVmd,
-                                configModule, onSolverReady, onFaceSolverReady,
-                              }: {
+    applyPose, applyFace, modelLoaded, onMediaPipeReadyChange, resetModel,
+    restPose, colliders, modelMorphs, exportVmd,
+    onSolverReady, onFaceSolverReady,
+    engineRef, modelRef
+  }: {
   applyPose: (boneStates: BoneState[], tweenMs: number) => void
   applyFace: (faceResult: FaceSolverResult, tweenMs: number) => void
   modelLoaded: boolean
@@ -40,6 +41,8 @@ export const MotionCapture = ({
   configModule?: ConfigurationModule
   onSolverReady?: (solver: Solver) => void
   onFaceSolverReady?: (face: FaceBlendshapeSolver) => void
+  engineRef: React.RefObject<Engine | null>
+  modelRef: React.RefObject<Model | null>
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
@@ -47,53 +50,21 @@ export const MotionCapture = ({
   const videoInputRef = useRef<HTMLInputElement>(null)
   const solverRef = useRef<Solver>(new Solver())
   const faceSolverRef = useRef<FaceBlendshapeSolver>(new FaceBlendshapeSolver())
-  const faceEnabledRef = useRef(true)
 
-  const [inputMode, setInputMode] = useState<InputMode>("video")
-  const [isStreamActive, setIsStreamActive] = useState(false)
-  const [currentImage, setCurrentImage] = useState("/4.png")
-  const [videoSrc, setVideoSrc] = useState<string>()
   const [landmarks, setLandmarks] = useState<PoseWorkerResult | null>(null)
-  const [lastMedia, setLastMedia] = useState<"IMAGE" | "VIDEO">("VIDEO")
 
-  // Bone groups
-  const [boneGroups, setBoneGroups] = useLocalStorage<BoneGroup[]>("mikapo-bone-groups", DEFAULT_BONE_GROUPS)
-  const boneGroupsRef = useRef(boneGroups)
-  useEffect(() => { boneGroupsRef.current = boneGroups }, [boneGroups])
-  const boneGroupsSet = new Set(boneGroups)
-
-  // Face state
-  const [faceEnabled, setFaceEnabled] = useState(true)
-  const [faceMorphs, setFaceMorphs] = useState({ blink: true, wink: true, mouth: true, smile: true })
-  const [faceThresholds, setFaceThresholds] = useState({ eyeOpen: 0.3, eyeClosed: 0.1, mouthOpen: 0.18, smile: 0.008 })
-  const [faceSmoothing, setFaceSmoothing] = useState({ eyes: 0.5, mouth: 0.5, smile: 0.5 })
-  const [faceGaze, setFaceGaze] = useState({ enabled: true, strength: 1.0 })
-
-  // Sync face state → solver
-  const faceSolverRef2 = useRef(faceSolverRef.current)
-  useEffect(() => {
-    const f = faceSolverRef.current
-    f.setEnabled(faceEnabled)
-    f.setMorphEnabled("blink", faceMorphs.blink)
-    f.setMorphEnabled("wink", faceMorphs.wink)
-    f.setMorphEnabled("mouth", faceMorphs.mouth)
-    f.setMorphEnabled("smile", faceMorphs.smile)
-    f.setThresholds(faceThresholds)
-    f.setSmoothing(faceSmoothing)
-    f.setGazeEnabled(faceGaze.enabled)
-    f.setGazeStrength(faceGaze.strength)
-  }, [faceEnabled, faceMorphs, faceThresholds, faceSmoothing, faceGaze])
-
-  const currentBoneStatesRef = useRef<BoneState[]>([])
-  const currentMorphWeightsRef = useRef<FaceMorphWeights | null>(null)
+  const { boneGroupsSet, handleBoneChange, filterPose } = useBoneFilter()
+  const faceCfg = useFaceConfig(faceSolverRef)
+  const sceneCfg = useSceneConfig(engineRef, solverRef, modelRef, modelLoaded)
+  const resetAll = useCallback(() => { resetModel?.(); solverRef.current.reset(); faceSolverRef.current.reset() }, [resetModel])
   const modelLoadedRef = useRef(modelLoaded)
   useEffect(() => { modelLoadedRef.current = modelLoaded }, [modelLoaded])
   const applyPoseRef = useRef(applyPose)
   useEffect(() => { applyPoseRef.current = applyPose }, [applyPose])
   const applyFaceRef = useRef(applyFace)
   useEffect(() => { applyFaceRef.current = applyFace }, [applyFace])
-  const inputModeRef = useRef<InputMode>(null)
-  useEffect(() => { inputModeRef.current = inputMode }, [inputMode])
+  const faceEnabledRef = useRef(faceCfg.faceEnabled)
+  useEffect(() => { faceEnabledRef.current = faceCfg.faceEnabled }, [faceCfg.faceEnabled])
 
   const lastDebugUpdateRef = useRef(0)
   const lastResultAtRef = useRef(0)
@@ -113,83 +84,38 @@ export const MotionCapture = ({
     const tweenMs = Math.max(40, resultIntervalEmaRef.current * 2)
     if (!modelLoadedRef.current) return
 
-    const pose = solverRef.current.solve(result, timestampMs, inputModeRef.current === "image")
-
-    const groups = boneGroupsRef.current
-    const activeNames = new Set<string>()
-    for (const group of groups) {
-      for (const name of BONE_GROUP_MEMBERS[group]) {
-        activeNames.add(name)
-      }
-    }
-    if (groups.includes("leftArm") || groups.includes("rightArm")) activeNames.add("上半身")
-    if (groups.includes("leftLeg") || groups.includes("rightLeg")) activeNames.add("下半身")
-    if (groups.includes("head")) activeNames.add("首")
-
-    const filtered = pose.map(b => activeNames.has(b.name) ? b : { name: b.name, rotation: Quat.identity() })
-    currentBoneStatesRef.current = filtered
-    applyPoseRef.current(filtered, inputModeRef.current === "image" ? 0 : tweenMs)
+    const pose = solverRef.current.solve(result, timestampMs)
+    const filtered = filterPose(pose)
+    applyPoseRef.current(filtered, tweenMs)
 
     if (faceEnabledRef.current && result.faceLandmarks?.[0]) {
       const faceResult = faceSolverRef.current.solve(result.faceLandmarks[0], timestampMs)
-      currentMorphWeightsRef.current = faceResult.morphWeights
       applyFaceRef.current(faceResult, tweenMs)
     }
-  }, [])
+  }, [filterPose])
 
   const { mediaPipeReady, awaitFrame, setConverting, postMode, postReset } = useMediaPipe(videoRef, imageRef, handleResult)
+
   const videoControls = useVideoControls()
-  const { converting, progress, exported, setExported, cancelRef, exportPoseVmd, convertVideoToVmd } = useVmdExport(
-    { current: solverRef.current }, { current: faceSolverRef.current },
-    currentBoneStatesRef, currentMorphWeightsRef, faceEnabledRef, exportVmd,
+  const { converting, progress, exported, cancelRef, exportPoseVmd, convertVideoToVmd } = useVmdExport(
+    solverRef, faceSolverRef, exportVmd, faceEnabledRef,
   )
 
-  useEffect(() => { onSolverReady?.(solverRef.current); onFaceSolverReady?.(faceSolverRef.current) }, [onSolverReady, onFaceSolverReady])
+  const { inputMode, isStreamActive, currentImage, videoSrc, toggleCamera, handleImageUpload, handleVideoUpload } = useInputMode(videoRef, resetAll, postMode, postReset)
+
+
+  const handleExport = useCallback(() => {
+    if (inputMode === "image") exportPoseVmd()
+    else if (videoRef.current) convertVideoToVmd(videoRef.current, awaitFrame)
+  }, [inputMode, exportPoseVmd, convertVideoToVmd, awaitFrame])
+
+  const handleReload = useCallback(() => window.location.reload(), [])
+
   useEffect(() => { if (restPose) solverRef.current.calibrate(restPose) }, [restPose])
   useEffect(() => { if (restPose && colliders) solverRef.current.calibrateColliders(colliders, restPose) }, [restPose, colliders])
   useEffect(() => { if (modelMorphs?.length) faceSolverRef.current.configure(modelMorphs) }, [modelMorphs])
   useEffect(() => { onMediaPipeReadyChange?.(mediaPipeReady) }, [mediaPipeReady, onMediaPipeReadyChange])
-
-  const resetAll = useCallback(() => { resetModel?.(); solverRef.current.reset(); faceSolverRef.current.reset() }, [resetModel])
-  const toggleCamera = useCallback(() => { isStreamActive ? stopCamera() : startCamera() }, [isStreamActive])
-  const handleExport = useCallback(() => { inputMode === "image" ? exportPoseVmd() : videoRef.current && convertVideoToVmd(videoRef.current, awaitFrame) }, [inputMode, exportPoseVmd, convertVideoToVmd, awaitFrame])
-  const handleBoneChange = useCallback((groups: Set<BoneGroup>) => setBoneGroups([...groups]), [setBoneGroups])
-  const handleReload = useCallback(() => window.location.reload(), [])
-
-  const stopCamera = useCallback(() => {
-    const video = videoRef.current
-    if (video?.srcObject) { (video.srcObject as MediaStream).getTracks().forEach(t => t.stop()); video.srcObject = null }
-    if (video) { video.pause(); video.src = ""; video.load() }
-    setIsStreamActive(false); setInputMode(null)
-  }, [])
-
-  const startCamera = useCallback(async () => {
-    try {
-      stopCamera(); resetAll()
-      if (lastMedia === "IMAGE") postMode("VIDEO")
-      setInputMode("camera")
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play() }
-      setIsStreamActive(true); setLastMedia("VIDEO")
-    } catch (err) { console.error("Camera error:", err); setIsStreamActive(false); setInputMode(null) }
-  }, [stopCamera, resetAll, postMode, lastMedia])
-
-  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file?.type.includes("image")) return
-    resetAll(); postMode("IMAGE"); postReset()
-    setCurrentImage(URL.createObjectURL(file)); setVideoSrc(undefined); setInputMode("image"); setLastMedia("IMAGE")
-  }, [resetAll, postMode, postReset])
-
-  const handleVideoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file?.type.includes("video")) return
-    resetAll()
-    if (lastMedia === "IMAGE") { postMode("VIDEO"); setCurrentImage("") }
-    setVideoSrc(URL.createObjectURL(file)); setInputMode("video")
-    if (videoRef.current) videoRef.current.currentTime = 0
-    setLastMedia("VIDEO")
-  }, [resetAll, postMode, lastMedia])
+  useEffect(() => { onSolverReady?.(solverRef.current); onFaceSolverReady?.(faceSolverRef.current) }, [onSolverReady, onFaceSolverReady])
 
   return (
     <>
@@ -213,11 +139,16 @@ export const MotionCapture = ({
         onReload={handleReload} onExport={handleExport}
         videoRef={videoRef} currentImage={currentImage} videoSrc={videoSrc}
         landmarks={landmarks} DebugScene={DebugScene}
-        faceEnabled={faceEnabled} onFaceEnabledChange={setFaceEnabled}
-        faceMorphs={faceMorphs} onFaceMorphChange={m => setFaceMorphs(p => ({ ...p, ...m }))}
-        faceThresholds={faceThresholds} onFaceThresholdChange={t => setFaceThresholds(p => ({ ...p, ...t }))}
-        faceSmoothing={faceSmoothing} onFaceSmoothingChange={s => setFaceSmoothing(p => ({ ...p, ...s }))}
-        faceGaze={faceGaze} onFaceGazeChange={g => setFaceGaze(p => ({ ...p, ...g }))}
+        faceEnabled={faceCfg.faceEnabled} onFaceEnabledChange={faceCfg.setFaceEnabled}
+        faceMorphs={faceCfg.faceMorphs} onFaceMorphChange={faceCfg.setFaceMorphs}
+        faceThresholds={faceCfg.faceThresholds} onFaceThresholdChange={faceCfg.setFaceThresholds}
+        faceSmoothing={faceCfg.faceSmoothing} onFaceSmoothingChange={faceCfg.setFaceSmoothing}
+        faceGaze={faceCfg.faceGaze} onFaceGazeChange={faceCfg.setFaceGaze}
+        sceneCamera={sceneCfg.sceneCamera} onSceneCameraChange={sceneCfg.onSceneCameraChange}
+        sceneBackground={sceneCfg.sceneBackground} onSceneBackgroundChange={sceneCfg.onSceneBackgroundChange}
+        sceneSun={sceneCfg.sceneSun} onSceneSunChange={sceneCfg.onSceneSunChange}
+        sceneWorld={sceneCfg.sceneWorld} onSceneWorldChange={sceneCfg.onSceneWorldChange}
+        sceneSmoothing={sceneCfg.sceneSmoothing} onSceneSmoothingChange={sceneCfg.onSceneSmoothingChange}
       />
 
       <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageUpload} />

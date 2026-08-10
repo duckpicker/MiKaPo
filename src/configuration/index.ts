@@ -26,10 +26,6 @@ export class ConfigurationModule {
     applySmoothingConfig(solver, this.config.smoothing)
   }
 
-  applyToFace(face: FaceBlendshapeSolver): void {
-    applyFaceConfig(face, this.config.face)
-  }
-
   applyToScene(engine: Engine): void {
     applySceneConfig(engine, this.config.scene)
   }

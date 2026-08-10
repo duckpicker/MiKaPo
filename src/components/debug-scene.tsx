@@ -45,8 +45,6 @@ function DebugScene({ landmarks }: { landmarks: SkeletonLandmarks | null }) {
       engine.runRenderLoop(() => {
         const c = canvasRef.current
         if (!c || c.clientWidth === 0 || c.clientHeight === 0) return
-        // resize() every frame forces layout + backbuffer realloc — only do it
-        // when the canvas actually changed size.
         if (c.clientWidth !== lastW || c.clientHeight !== lastH) {
           lastW = c.clientWidth
           lastH = c.clientHeight
@@ -81,8 +79,6 @@ function DebugScene({ landmarks }: { landmarks: SkeletonLandmarks | null }) {
         const existing = lineMeshesRef.current.get(meshKey)
 
         if (existing) {
-          // Update points in place — avoids the dispose/recreate frame gap
-          // that was causing the debug lines to flicker.
           MeshBuilder.CreateLines(
             `debug_lines_${meshNamePrefix}_${index}`,
             { points: [start, end], instance: existing },

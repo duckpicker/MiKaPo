@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, Suspense } from "react"
-import { Webcam, Bone, Smile, Settings, RotateCw, Download, Video, ImageIcon, Camera } from "lucide-react"
+import {Webcam, Bone, Smile, Settings, RotateCw, Download, Video, ImageIcon, Camera, Mountain} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { BoneToggles } from "./bone-toggles"
@@ -9,8 +9,9 @@ import type { BoneGroup } from "@/configuration/types"
 import type { InputMode } from "@/hooks/useMediaPipe"
 import type { PoseWorkerResult } from "@/types/pose-worker"
 import {FacePanel} from "@/components/ui/face-panel";
+import {SettingsPanel} from "@/components/ui/settings-panel";
 
-type TabId = "media" | "bones" | "face" | "settings"
+type TabId = "media" | "bones" | "face" | "world"
 
 interface SidebarProps {
   inputMode: InputMode
@@ -38,6 +39,16 @@ interface SidebarProps {
   onFaceSmoothingChange: (s: Partial<{ eyes: number; mouth: number; smile: number }>) => void
   faceGaze: { enabled: boolean; strength: number }
   onFaceGazeChange: (g: Partial<{ enabled: boolean; strength: number }>) => void
+  sceneCamera: { distance: number; followBone: string; followSmoothing: number; offsetY: number }
+  onSceneCameraChange: (c: Partial<{ distance: number; followBone: string; followSmoothing: number; offsetY: number }>) => void
+  sceneBackground: { r: number; g: number; b: number } | null
+  onSceneBackgroundChange: (bg: { r: number; g: number; b: number } | null) => void
+  sceneSun: { direction: { x: number; y: number; z: number }; strength: number; color: { r: number; g: number; b: number } }
+  onSceneSunChange: (s: Partial<{ direction: { x: number; y: number; z: number }; strength: number; color: { r: number; g: number; b: number } }>) => void
+  sceneWorld: { strength: number; color: { r: number; g: number; b: number } }
+  onSceneWorldChange: (w: Partial<{ strength: number; color: { r: number; g: number; b: number } }>) => void
+  sceneSmoothing: { minCutoff: number; beta: number; dCutoff: number }
+  onSceneSmoothingChange: (s: Partial<{ minCutoff: number; beta: number; dCutoff: number }>) => void
 }
 
 function TabIcon({
@@ -78,6 +89,11 @@ export function Sidebar({
     faceThresholds, onFaceThresholdChange,
     faceSmoothing, onFaceSmoothingChange,
     faceGaze, onFaceGazeChange,
+    sceneCamera, onSceneCameraChange,
+    sceneBackground, onSceneBackgroundChange,
+    sceneSun, onSceneSunChange,
+    sceneWorld, onSceneWorldChange,
+    sceneSmoothing, onSceneSmoothingChange,
   }: SidebarProps) {
   const [activeTab, setActiveTab] = useState<TabId | null>("media")
 
@@ -94,7 +110,7 @@ export function Sidebar({
           <TabIcon icon={Camera} label="Media" active={activeTab === "media"} onClick={() => toggle("media")} />
           <TabIcon icon={Bone} label="Bones" active={activeTab === "bones"} onClick={() => toggle("bones")} />
           <TabIcon icon={Smile} label="Face" active={activeTab === "face"} onClick={() => toggle("face")} />
-          <TabIcon icon={Settings} label="Settings" active={activeTab === "settings"} onClick={() => toggle("settings")} />
+          <TabIcon icon={Mountain} label="World" active={activeTab === "world"} onClick={() => toggle("world")} />
           <div className="my-0.5 h-px bg-white/10" />
           <TabIcon icon={RotateCw} label="Reload" onClick={onReload} />
           <TabIcon icon={Download} label="Export" onClick={onExport} />
@@ -130,11 +146,14 @@ export function Sidebar({
               gaze={faceGaze} onGazeChange={onFaceGazeChange}
             />
           </div>
-          <div className={activeTab === "settings" ? "" : "hidden"}>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Settings</span>
-              <span className="text-xs text-white/50">Coming soon</span>
-            </div>
+          <div className={activeTab === "world" ? "" : "hidden"}>
+            <SettingsPanel
+              camera={sceneCamera} onCameraChange={onSceneCameraChange}
+              background={sceneBackground} onBackgroundChange={onSceneBackgroundChange}
+              sun={sceneSun} onSunChange={onSceneSunChange}
+              world={sceneWorld} onWorldChange={onSceneWorldChange}
+              smoothing={sceneSmoothing} onSmoothingChange={onSceneSmoothingChange}
+            />
           </div>
         </div>
       </div>

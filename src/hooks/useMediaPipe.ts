@@ -19,7 +19,6 @@ export function useMediaPipe(
     workerRef.current?.postMessage(msg, transfer ?? [])
   }, [])
 
-  // Init worker
   useEffect(() => {
     let rafId = 0
     let ready = false

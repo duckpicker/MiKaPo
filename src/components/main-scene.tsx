@@ -69,12 +69,10 @@ export default function MainScene() {
 
   const pmxPickDialogOpen = Boolean(pmxPickFiles && pmxPickPaths.length > 1)
 
-  // ── Camera follow ──
   const followModel = useCallback((model: Model) => {
     engineRef.current?.setCameraFollow(model, "センター", new Vec3(0, 3, 0), 0.15)
   }, [engineRef])
 
-  // ── Init engine + load default model ──
   const initEngine = useCallback(async () => {
     if (!canvasRef.current) return
     try {
@@ -84,7 +82,6 @@ export default function MainScene() {
       configRef.current.save()
 
       if (!USE_DEFAULT_ASSETS) {
-        engine.addGround({ diffuseColor: new Vec3(0.9, 0.1, 0.9) })
         return
       }
 
@@ -100,11 +97,9 @@ export default function MainScene() {
         await engine.autoStyleGroups(DEFAULT_MODEL_KEY, DEFAULT_STYLE_OVERRIDES)
         setModelLoaded(true)
         if (solverRef.current) configRef.current.applyToSolver(solverRef.current)
-        if (faceSolverRef.current) configRef.current.applyToFace(faceSolverRef.current)
         await new Promise((r) => requestAnimationFrame(r))
         buildRestPose(model)
         followModel(model)
-        engine.addGround({ diffuseColor: new Vec3(0.9, 0.1, 0.9) })
         setEngineError(null)
       } catch (loadErr) {
         setEngineError(loadErr instanceof Error ? loadErr.message : "Unknown error")
@@ -119,7 +114,6 @@ export default function MainScene() {
     return () => dispose()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Load PMX from folder ──
   const loadPmxFromFolder = useCallback(async (files: File[], pmxFile: File) => {
     const engine = engineRef.current
     if (!engine) { window.alert("Viewport is not ready yet."); return }
@@ -144,7 +138,6 @@ export default function MainScene() {
     }
   }, [engineRef, modelRef, loadGenerationRef, setModelLoaded, buildRestPose, followModel])
 
-  // ── Folder picker ──
   const onPickPmxFolder = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const picked = parsePmxFolderInput(e.target.files)
@@ -168,7 +161,6 @@ export default function MainScene() {
     setPmxPickFiles(null); setPmxPickPaths([]); setPmxPickSelected("")
   }, [loadPmxFromFolder, pmxPickFiles, pmxPickSelected])
 
-  // ── Apply pose / face ──
   const applyPose = useCallback((boneStates: BoneState[], tweenMs = 30) => {
     const model = modelRef.current
     if (!model) return
@@ -211,7 +203,6 @@ export default function MainScene() {
     URL.revokeObjectURL(url)
   }, [modelRef])
 
-  // ── Keyboard: Escape closes dialog ──
   useEffect(() => {
     if (!pmxPickDialogOpen) return
     const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape") { setPmxPickFiles(null); setPmxPickPaths([]) } }
@@ -254,7 +245,9 @@ export default function MainScene() {
         exportVmd={exportVmd}
         configModule={configRef.current}
         onSolverReady={(s) => { solverRef.current = s; configRef.current.applyToSolver(s) }}
-        onFaceSolverReady={(f) => { faceSolverRef.current = f; configRef.current.applyToFace(f) }}
+        onFaceSolverReady={(f) => { faceSolverRef.current = f }}
+        engineRef={engineRef}
+        modelRef={modelRef}
       />
 
       {engineError ? (

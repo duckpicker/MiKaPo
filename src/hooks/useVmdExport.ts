@@ -12,11 +12,11 @@ import type { PoseWorkerResult } from "@/types/pose-worker"
 export function useVmdExport(
   solverRef: React.RefObject<Solver | null>,
   faceSolverRef: React.RefObject<FaceBlendshapeSolver | null>,
-  currentBoneStatesRef: React.RefObject<BoneState[]>,
-  currentMorphWeightsRef: React.RefObject<FaceMorphWeights | null>,
-  faceEnabledRef: React.RefObject<boolean>,
   exportVmd?: (clip: ReturnType<typeof buildClip>) => void,
+  faceEnabledRef?: React.RefObject<boolean>,
 ) {
+  const currentBoneStatesRef = useRef<BoneState[]>([])
+  const currentMorphWeightsRef = useRef<FaceMorphWeights | null>(null)
   const [converting, setConverting] = useState(false)
   const [progress, setProgress] = useState(0)
   const [exported, setExported] = useState<string | null>(null)
@@ -28,11 +28,11 @@ export function useVmdExport(
     const clip = buildClip([{
       time: 0,
       boneStates: pose.map((bs) => ({ name: bs.name, rotation: bs.rotation.clone() })),
-      morphWeights: faceEnabledRef.current ? currentMorphWeightsRef.current : null,
+      morphWeights: faceEnabledRef?.current ? currentMorphWeightsRef.current : null,
     }])
     exportVmd?.(clip)
     setExported("pose saved")
-  }, [currentBoneStatesRef, currentMorphWeightsRef, faceEnabledRef, exportVmd])
+  }, [faceEnabledRef, exportVmd])
 
   const convertVideoToVmd = useCallback(async (
     video: HTMLVideoElement,
@@ -75,7 +75,7 @@ export function useVmdExport(
         const pose = solverRef.current!.solve(result, t * 1000)
         currentBoneStatesRef.current = pose
         let morphWeights: FaceMorphWeights | null = null
-        if (faceEnabledRef.current && result.faceLandmarks?.[0]) {
+        if (faceEnabledRef?.current && result.faceLandmarks?.[0]) {
           const face = faceSolverRef.current!.solve(result.faceLandmarks[0], t * 1000)
           morphWeights = face.morphWeights
           currentMorphWeightsRef.current = morphWeights
@@ -101,7 +101,7 @@ export function useVmdExport(
     exportVmd?.(clip)
     const { frames: n, seconds } = clipSummary(clip)
     setExported(`${n}f · ${seconds.toFixed(1)}s`)
-  }, [solverRef, faceSolverRef, currentBoneStatesRef, currentMorphWeightsRef, faceEnabledRef, exportVmd])
+  }, [solverRef, faceSolverRef, faceEnabledRef, exportVmd])
 
   return { converting, progress, exported, setExported, cancelRef, exportPoseVmd, convertVideoToVmd }
 }

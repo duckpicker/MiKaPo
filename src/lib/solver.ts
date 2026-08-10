@@ -17,7 +17,6 @@ import {
   MIN_VISIBILITY, WITNESS_FADE_LO, WITNESS_FADE_HI,
 } from "@/constants/bones"
 
-// Scratch for the clearance pass — it runs per arm, per frame.
 const _clearA = Quat.identity()
 const _clearB = Quat.identity()
 const _clearC = Quat.identity()
@@ -27,7 +26,6 @@ const _gA = new Vec3(0, 0, 0)
 const _gB = new Vec3(0, 0, 0)
 const _clearTo = new Vec3(0, 0, 0)
 
-// Scratch registers — the entire per-frame solve allocates nothing.
 const sFrom = Vec3.zeros()
 const sTo = Vec3.zeros()
 const sDir = Vec3.zeros()
@@ -37,8 +35,6 @@ const sB = Vec3.zeros()
 const sC = Vec3.zeros()
 const sQ = Quat.identity()
 const sQ2 = Quat.identity()
-// The two witness solutions, held apart so the second can be built while the
-// first is still waiting to be blended.
 const sQ3 = Quat.identity()
 const sQ4 = Quat.identity()
 
@@ -55,19 +51,6 @@ export class Solver {
   private filteredWorlds: Record<string, Quat> = {}
   private moveFilters: Record<string, Vec3OneEuroFilter> = {}
   private filters: Record<string, QuaternionOneEuroFilter> = {}
-  // One-Euro tuning: minCutoff governs rest-pose jitter suppression (lower =
-  // calmer, laggier at rest); beta governs how fast the cutoff opens with
-  // speed (higher = fast/dramatic moves track tighter with less lag and less
-  // amplitude loss). Rest stability and motion tracking are tuned independently.
-  //
-  // dCutoff is the low-pass on the SPEED estimate, and it decides how quickly
-  // the adaptive term reacts — the term that is supposed to open the filter up
-  // and let a fast move through. One-Euro's published default of 1.0 Hz is
-  // tuned for a mouse pointer. On a limb it is far too slow: at 30 fps it
-  // reaches only 63% of a step in about six frames, so a strike that is over in
-  // three is filtered at its RESTING cutoff throughout and lands short. 4 Hz
-  // gets there in roughly two frames, inside the action rather than after it.
-  // This is the single parameter behind 动作没做到位.
   private smoothing = { minCutoff: 1.5, beta: 1.5, dCutoff: 4.0 }
 
   /**
@@ -78,8 +61,6 @@ export class Solver {
   setSmoothing(minCutoff: number, beta: number, dCutoff?: number): void {
     this.smoothing = { ...this.smoothing, minCutoff, beta, dCutoff: dCutoff ?? this.smoothing.dCutoff }
     this.filters = {}
-    // Position filters carry the same cutoffs and must be rebuilt too, or the
-    // IK targets keep smoothing at the old settings while the rotations change.
     this.moveFilters = {}
   }
 
@@ -87,8 +68,6 @@ export class Solver {
   getSmoothing(): { minCutoff: number; beta: number; dCutoff: number } {
     return { ...this.smoothing }
   }
-  // Calibrated reference directions in each bone's parent-local frame at rest.
-  // Populated by calibrate() from the loaded model. Falls through to DEFAULT_REFS.
   private refs: Record<string, Vec3> = {}
   /** Stable output array: one BoneState per def, quats mutated in place each frame. */
   private outputs: BoneState[]
@@ -107,8 +86,6 @@ export class Solver {
       this.filteredWorlds[def.name] = Quat.identity()
       return state
     })
-    // The clavicles: no landmark pair drives them, they take a share of the
-    // arm's own rotation (see applyShoulderRhythm).
     for (const name of SHOULDER_BONES) {
       const state: BoneState = { name, rotation: Quat.identity() }
       this.outputByName[name] = state
@@ -117,9 +94,6 @@ export class Solver {
       this.worlds[name] = Quat.identity()
       this.filteredWorlds[name] = Quat.identity()
     }
-    // Bones the definition table does not solve, because they are not driven by
-    // a landmark pair: the root's height and the two leg IK targets. They are
-    // computed geometrically after the chain resolves.
     for (const name of GROUNDING_BONES) {
       const state: BoneState = { name, rotation: Quat.identity(), translation: new Vec3(0, 0, 0) }
       this.outputByName[name] = state
@@ -130,8 +104,6 @@ export class Solver {
   reset(): void {
     this.heldDy = 0
     for (const key of Object.keys(this.filters)) this.filters[key].reset()
-    // Position filters too, or a second still eases out of the first one's
-    // body placement instead of simply being that pose.
     for (const key of Object.keys(this.moveFilters)) this.moveFilters[key].reset()
     for (const key of Object.keys(this.locals)) this.locals[key].setIdentity()
     for (const name of GROUNDING_BONES) this.outputByName[name]?.translation?.setXYZ(0, 0, 0)
@@ -189,9 +161,6 @@ export class Solver {
 
     const TORSO_BONES = new Set(["上半身", "上半身2", "下半身", "首", "頭"])
     for (const c of colliders) {
-      // Sphere: size.x is the radius. Capsule: size.x radius, size.y height.
-      // Box: take the smallest half-extent as a conservative radius so a boxy
-      // torso does not over-claim space.
       const r = c.shape === 1 ? Math.min(c.size.x, c.size.z) : c.size.x
       const half = c.shape === 2 ? c.size.y * 0.5 : 0
       if (TORSO_BONES.has(c.bone)) {
@@ -235,7 +204,6 @@ export class Solver {
       const shoulderRest = this.refsPos(side + "腕")
       if (!shoulderRest) continue
 
-      // Chest-local shoulder joint, then the two limb capsule centres by FK.
       const sx = shoulderRest.x - this.chestRest.x
       const sy = shoulderRest.y - this.chestRest.y
       const sz = shoulderRest.z - this.chestRest.z
@@ -261,12 +229,10 @@ export class Solver {
         probes.push({ x: elbow.x + local.x, y: elbow.y + local.y, z: elbow.z + local.z, r: fore.r })
       }
 
-      // Deepest overlap against any body volume wins the correction.
       let worst: { x: number; y: number; z: number } | null = null
       let worstDepth = this.clearanceSlack
       for (const p of probes) {
         for (const b of this.bodyVolumes) {
-          // Closest point on the body capsule's axis (a sphere has half = 0).
           const ay = Math.min(b.y + b.half, Math.max(b.y - b.half, p.y))
           const dx = p.x - b.x
           const dy = p.y - ay
@@ -281,7 +247,6 @@ export class Solver {
       }
       if (!worst) continue
 
-      // Swing the shoulder outward along the radial direction, just past contact.
       const fromX = worst.x - sx
       const fromY = worst.y - sy
       const fromZ = worst.z - sz
@@ -299,7 +264,6 @@ export class Solver {
       _clearTo.setXYZ(tX / tLen, tY / tLen, tZ / tLen)
       Quat.fromUnitVectorsInto(_clearFrom, _clearTo, _clearA)
 
-      // Chest-local swing → world → back into the arm's parent-local frame.
       Quat.conjugateInto(chest, _clearB)
       Quat.multiplyInto(_clearA, _clearB, _clearC)
       Quat.multiplyInto(chest, _clearC, _clearA)
@@ -350,19 +314,15 @@ export class Solver {
         shoulderLocal.setIdentity()
         continue
       }
-      // armLocal's sign convention follows w; keep the axis on the same side.
       const flip = armLocal.w < 0 ? -1 : 1
       const ax = (armLocal.x * flip) / sin
       const ay = (armLocal.y * flip) / sin
       const az = (armLocal.z * flip) / sin
 
-      // Ramp in over the first 30° past the threshold rather than stepping.
       const ramp = Math.min(1, (angle - this.shoulderStart) / this.shoulderRamp)
       let take = (angle - this.shoulderStart) * this.shoulderRatio * ramp
       if (take > this.shoulderMax) take = this.shoulderMax
       Quat.fromAxisAngleInto(ax, ay, az, take, shoulderLocal)
-      // Remove exactly what the shoulder took, so the arm still points where the
-      // landmarks say it does.
       Quat.conjugateInto(shoulderLocal, _clearA)
       Quat.multiplyInto(_clearA, armLocal, _clearB)
       armLocal.set(_clearB)
@@ -394,21 +354,8 @@ export class Solver {
     const rest = this.restPos
     if (!this.pose || !rest["左足"] || !rest["右足"]) return
 
-    // Walk both legs from the leg root FIRST, with no body offset, to find
-    // where each ankle lands. Placing the body is then exact: drop it until the
-    // LOWER foot rests at the height it rests at in the model's own bind pose.
-    //
-    // Deriving the offset from measured hip height instead needs the landmark
-    // scale and the model's rest stance to agree, and they do not — MMD models
-    // commonly stand with a slight bend, which leaves a constant float. This
-    // formulation cannot drift: the supporting foot is on the floor because the
-    // body was placed to put it there.
     const ankleY: Record<string, number> = {}
     const ankleWorld: Record<string, { x: number; y: number; z: number }> = {}
-    // 足 hangs off 下半身, which the solver rotates every frame — a leaning or
-    // twisting lower body carries the hip joints with it. Starting the chain at
-    // 足's REST position ignores that and leaves the body floating (or sunk) by
-    // whatever the lean displaced.
     const lowerRest = rest["下半身"]
     const lowerWorld = this.filteredWorlds["下半身"]
     for (const side of ["左", "右"] as const) {
@@ -438,32 +385,13 @@ export class Solver {
     const legRootY = ((rest["左足"]?.y ?? 0) + (rest["右足"]?.y ?? 0)) / 2
     const legSpan = Math.max(1e-3, legRootY - restAnkleY)
 
-    // The body rests on its LOWEST PART, not on its feet. Grounding purely off
-    // ankles assumes someone is standing on them — so a person rolling on the
-    // floor, whose weight is on their back with legs in the air, had the body
-    // hauled up and down by whatever the legs were doing. That is the bouncing.
-    //
-    // Each candidate says how far the body must move for IT to sit on the floor
-    // (its own resting height minus where the pose put it), and the binding one
-    // is simply the largest: satisfy that and nothing else is underground. The
-    // ankles rest at their bind height; the hips rest a body's thickness up.
-    // Continuous by construction — at a handover the two agree, so support
-    // passes from feet to hip without a step.
     let rawDy = -Infinity
     for (const y of ys) rawDy = Math.max(rawDy, restAnkleY - y)
     const hipRestY = rest["下半身"]?.y ?? legRootY
     rawDy = Math.max(rawDy, legSpan * this.hipClearance - hipRestY)
     rawDy *= this.groundingGain
-    // A body cannot climb above its own bind height, whatever the landmarks say.
     if (rawDy > legSpan * 0.15) rawDy = legSpan * 0.15
 
-    // Grounding is a standing-pose idea. Once the torso leaves vertical — rolling,
-    // lying, a floor move — the hips are on the ground and the legs are in the
-    // air, and nothing in hip-centred landmarks says how far the body dropped.
-    // Tracking anyway means the legs drive the height and the body bounces.
-    // So: hold the last height instead of guessing, fading over rather than
-    // switching. A pose we place imperfectly is forgivable; one that jitters
-    // is not.
     const spineWorld = this.filteredWorlds["上半身"]
     if (spineWorld) {
       _gA.setXYZ(0, 1, 0)
@@ -486,7 +414,6 @@ export class Solver {
     }
     const dy = center.translation.y
 
-    // Each ankle, lifted by the same offset, is that leg's IK target.
     for (const side of ["左", "右"] as const) {
       const ikOut = this.outputByName[side + "足ＩＫ"]
       const ikRest = rest[side + "足ＩＫ"] ?? rest[side + "足首"]
@@ -503,8 +430,6 @@ export class Solver {
       } else {
         f.filterInto(p.x - ikRest.x, p.y + dy - ikRest.y, p.z - ikRest.z, timestampMs, ikOut.translation)
       }
-      // With IK driving the chain the foot takes its orientation from the IK
-      // bone, so hand it the ankle's (filtered) world rotation.
       const footWorld = this.filteredWorlds[side + "足首"]
       if (footWorld) ikOut.rotation.set(footWorld)
     }
@@ -515,9 +440,6 @@ export class Solver {
     return this.restPos[name] ?? null
   }
 
-  // Calibrate reference directions from the model's rest-pose world bone positions.
-  // Parent chains are identity at rest, so world-space (child − parent) IS the
-  // parent-local reference direction.
   calibrate(restWorldPos: Record<string, XYZ>): void {
     const dir = (parent: string, child: string): Vec3 | null => {
       const p = restWorldPos[parent]
@@ -531,7 +453,8 @@ export class Solver {
       if (v) this.refs[key] = v
     }
 
-    // Limbs
+    console.log(restWorldPos)
+
     set("左腕", dir("左腕", "左ひじ"))
     set("右腕", dir("右腕", "右ひじ"))
     set("左ひじ", dir("左ひじ", "左手首"))
@@ -543,14 +466,9 @@ export class Solver {
 
     this.restPos = restWorldPos
 
-    // Ankle: pose runtime uses ankle→foot_index, so calibrate the same shape.
     set("左足首", dir("左足首", "左つま先"))
     set("右足首", dir("右足首", "右つま先"))
 
-    // Neck: bone-direct (首→頭) doesn't match the pose runtime measurement
-    // (ear_center − shoulder_center), so even at rest the rotation isn't identity.
-    // Use eye/shoulder bone proxies — eye height ≈ ear height, shoulder bone ≈
-    // shoulder landmark. Falls through to 首→頭 if any of the four bones is missing.
     set("首", dir("首", "頭"))
     const ls = restWorldPos["左肩"]
     const rs = restWorldPos["右肩"]
@@ -565,18 +483,12 @@ export class Solver {
       if (v.length() > 1e-6) this.refs["首"] = v.normalizeInPlace()
     }
 
-    // Wrists — middle finger root is the natural "forward" axis of the hand
     set("左手首", dir("左手首", "左中指１"))
     set("右手首", dir("右手首", "右中指１"))
 
-    // Wrist-twist witness axis: index_mcp − ring_mcp at rest. The twist solve
-    // compares the live hand axis to this reference and projects onto the
-    // forearm to extract twist. Without calibration, the (0, 0, -1) fallback
-    // bakes in a 90°-ish baseline twist for every frame including rest.
     set("左手捩", dir("左薬指１", "左人指１"))
     set("右手捩", dir("右薬指１", "右人指１"))
 
-    // Finger base joints (proximal phalanges)
     set("左親指１", dir("左親指１", "左親指２"))
     set("右親指１", dir("右親指１", "右親指２"))
     set("左人指１", dir("左人指１", "左人指２"))
@@ -616,8 +528,6 @@ export class Solver {
 
     for (const def of BONE_DEFS) {
       const local = this.locals[def.name]
-      // Each solve writes into `local`, or leaves it untouched (hold) when its
-      // landmarks are missing or below the visibility gate.
       switch (def.kind) {
         case "basis":
           this.solveBasis(def, local)
@@ -640,8 +550,6 @@ export class Solver {
       }
     }
 
-    // Shoulder rhythm rewrites 肩 and 腕 locals, so the world chain is rebuilt
-    // before anything downstream reads it.
     this.applyShoulderRhythm()
     for (const def of BONE_DEFS) {
       if (def.kind === "fingerRatio") continue
@@ -653,8 +561,6 @@ export class Solver {
 
     this.enforceBodyClearance()
 
-    // One-Euro post-pass on the outputs only — the hierarchy above always
-    // composes unfiltered locals, so parent-chain math stays exact.
     for (const def of BONE_DEFS) {
       if (unfiltered) {
         this.outputByName[def.name].rotation.set(this.locals[def.name])
@@ -683,10 +589,6 @@ export class Solver {
       f.filterInto(this.locals[name], timestampMs, this.outputByName[name].rotation)
     }
 
-    // Grounding walks the leg chain, so it must read the rotations that will
-    // actually be shown — otherwise the body is placed against an unfiltered
-    // skeleton and the feet inherit every landmark twitch. Recompose world
-    // rotations from the filtered locals (same order, so parents are ready).
     for (const def of BONE_DEFS) {
       if (def.kind === "fingerRatio") continue
       const world = this.filteredWorlds[def.name]
@@ -700,7 +602,6 @@ export class Solver {
     return this.outputs
   }
 
-  // -------------------------------------------------------------------------
 
   private getRef(key: string): Vec3 {
     return this.refs[key] ?? DEFAULT_REFS[key]
@@ -747,8 +648,6 @@ export class Solver {
     const w = hand[HandIndexTable.wrist]
     const mid = hand[HandIndexTable.middle_mcp]
     if (!w || !mid) return 0
-    // World landmarks are metres; a palm is ~8 cm. Anything under a centimetre
-    // is a collapsed cloud, not a hand.
     if (Math.hypot(mid.x - w.x, mid.y - w.y, mid.z - w.z) < 0.01) return 0
     const wristName = source === "leftHand" ? "left_wrist" : "right_wrist"
     return this.pose?.[PoseLandmarksTable[wristName]]?.visibility ?? 1
@@ -788,8 +687,6 @@ export class Solver {
 
     Quat.fromUnitVectorsInto(this.getRef(def.name), sDir, out)
 
-    //if (def.witness && this.witnessEnabled) this.applyWitness(def, parentWorld, out)
-    //if (def.bend && this.bendClampEnabled) Solver.clampBend(def.bend, out)
     if (def.bend && this.bendClampEnabled) Solver.clampBend(def.bend, out)
   }
 
@@ -799,18 +696,15 @@ export class Solver {
    * swing (spread) magnitude, and recompose.
    */
   private static clampBend(bend: BendLimit, q: Quat): void {
-    Quat.twistAroundAxisInto(q, bend.axis, sQ) // twist
-    // Signed flexion angle about the axis, wrapped to [-π, π]
+    Quat.twistAroundAxisInto(q, bend.axis, sQ)
     const k = sQ.x * bend.axis.x + sQ.y * bend.axis.y + sQ.z * bend.axis.z
     let angle = 2 * Math.atan2(k, sQ.w)
     if (angle > Math.PI) angle -= 2 * Math.PI
     else if (angle < -Math.PI) angle += 2 * Math.PI
     const clamped = Math.min(bend.max, Math.max(bend.min, angle))
 
-    // swing = q ∘ twist⁻¹
     sQ.conjugate()
     Quat.multiplyInto(q, sQ, sQ2)
-    // Clamp swing magnitude by nlerp toward identity
     const swingAngle = 2 * Math.acos(Math.min(1, Math.abs(sQ2.w)))
     if (swingAngle > bend.spreadMax) {
       const t = bend.spreadMax / swingAngle
@@ -820,7 +714,7 @@ export class Solver {
     }
 
     Quat.fromAxisAngleInto(bend.axis.x, bend.axis.y, bend.axis.z, clamped, sQ)
-    Quat.multiplyInto(sQ2, sQ, q) // q = swing ∘ twist
+    Quat.multiplyInto(sQ2, sQ, q)
   }
 
   /**
@@ -831,17 +725,12 @@ export class Solver {
    */
   private applyWitness(def: DirectionDef, parentWorld: Quat | null, out: Quat): void {
     const primary = this.witnessSolution(def, def.witness!, WITNESS_REST[def.name] ?? null, parentWorld, sQ3)
-    // How much of the roll the primary witness could actually see. Whatever it
-    // leaves is the room the fallback may claim.
     const t = Solver.witnessFade(primary)
     if (t > 0) {
       if (Quat.dot(out, sQ3) < 0) sQ3.setXYZW(-sQ3.x, -sQ3.y, -sQ3.z, -sQ3.w)
       Quat.nlerpInto(out, sQ3, t, out)
     }
 
-    // Straight limb. The knee has nothing left to say about roll, so ask the
-    // foot — see `rollFallback`. Both are absolute orientations, so handing
-    // over is a weighted average and stays continuous across the crossover.
     const room = 1 - t
     if (room <= 1e-3 || !def.rollFallback) return
     const fallback = this.witnessSolution(def, def.rollFallback, this.getRef(def.rollFallback), parentWorld, sQ4)
@@ -888,29 +777,24 @@ export class Solver {
     if (sWit.length() < 1e-6) return -1
     sWit.normalizeInPlace()
 
-    // Live witness component perpendicular to the live bone direction (sDir
-    // still holds it). Its magnitude is the observability of the roll; its
-    // bearing around the axis is the roll itself.
     const dLive = sWit.dot(sDir)
     sA.setXYZ(sWit.x - sDir.x * dLive, sWit.y - sDir.y * dLive, sWit.z - sDir.z * dLive)
     const perpLen = sA.length()
     if (perpLen < WITNESS_FADE_LO) return perpLen
     sA.normalizeInPlace()
 
-    // Rest witness component perpendicular to the rest bone direction.
     const ref = this.getRef(def.name)
     const dRest = restWit.dot(ref)
     sB.setXYZ(restWit.x - ref.x * dRest, restWit.y - ref.y * dRest, restWit.z - ref.z * dRest)
     if (sB.length() < 1e-3) return -1
     sB.normalizeInPlace()
 
-    // q = basisLive ∘ basisRest⁻¹ maps (ref → dir, restWitness⊥ → liveWitness⊥).
     Vec3.crossInto(ref, sB, sC)
-    Quat.fromBasisInto(ref, sB, sC, sQ) // basisRest
+    Quat.fromBasisInto(ref, sB, sC, sQ)
     sQ.conjugate()
     Vec3.crossInto(sDir, sA, sC)
-    Quat.fromBasisInto(sDir, sA, sC, sQ2) // basisLive
-    Quat.multiplyInto(sQ2, sQ, outQ) // apply rest⁻¹ first, then live
+    Quat.fromBasisInto(sDir, sA, sC, sQ2)
+    Quat.multiplyInto(sQ2, sQ, outQ)
     return perpLen
   }
 
@@ -924,8 +808,6 @@ export class Solver {
     if (sDir.length() < 1e-6) return
     sDir.normalizeInPlace()
 
-    // Total rotation aligning the rest hand axis to the live one includes the
-    // wrist swing; project onto the forearm axis to keep only the twist.
     Quat.fromUnitVectorsInto(this.getRef(def.name), sDir, sQ)
     Quat.twistAroundAxisInto(sQ, this.getRef(def.axisRef), out)
   }
@@ -954,7 +836,6 @@ export class Solver {
     switch (def.name) {
       case "上半身": {
         if (!this.point("pose", "left_shoulder", sA) || !this.point("pose", "right_shoulder", sB)) return
-        // spineY = shoulder center (pose world origin is the hip center)
         sDir.setXYZ((sA.x + sB.x) / 2, (sA.y + sB.y) / 2, (sA.z + sB.z) / 2).normalizeInPlace()
         Vec3.subtractInto(sA, sB, sC).normalizeInPlace()
         Solver.basisFromYAndX(sDir, sC, out)
@@ -965,9 +846,6 @@ export class Solver {
         sFrom.setXYZ((sA.x + sB.x) / 2, (sA.y + sB.y) / 2, (sA.z + sB.z) / 2)
         if (!this.point("pose", "left_hip", sA) || !this.point("pose", "right_hip", sB)) return
         sTo.setXYZ((sA.x + sB.x) / 2, (sA.y + sB.y) / 2, (sA.z + sB.z) / 2)
-        // Pelvis basis shares the trunk Y with 上半身 (no separate pelvis-tilt
-        // landmark exists); lower/upper differ in X (hip vs shoulder line),
-        // which captures twist.
         Vec3.subtractInto(sFrom, sTo, sDir).normalizeInPlace()
         Vec3.subtractInto(sA, sB, sC).normalizeInPlace()
         Solver.basisFromYAndX(sDir, sC, out)
@@ -977,17 +855,14 @@ export class Solver {
         if (!this.point("pose", "left_ear", sA) || !this.point("pose", "right_ear", sB)) return
         if (!this.point("pose", "left_eye", sFrom) || !this.point("pose", "right_eye", sTo)) return
         const parentWorld = this.worlds[def.parent!]
-        // X = ear axis, Z = back (ear center − eye center; eyes sit forward of
-        // ears), Y = cross — one basis, one decomposition, no gimbal compounding.
         Vec3.subtractInto(sA, sB, sC)
-        Quat.rotateVecInvInto(parentWorld, sC, sC).normalizeInPlace() // earX in parent frame
+        Quat.rotateVecInvInto(parentWorld, sC, sC).normalizeInPlace()
         sDir.setXYZ(
           (sA.x + sB.x - sFrom.x - sTo.x) / 2,
           (sA.y + sB.y - sFrom.y - sTo.y) / 2,
           (sA.z + sB.z - sFrom.z - sTo.z) / 2,
         )
-        Quat.rotateVecInvInto(parentWorld, sDir, sDir).normalizeInPlace() // back in parent frame
-        // Gram-Schmidt earX ⊥ back, then Y = back × X
+        Quat.rotateVecInvInto(parentWorld, sDir, sDir).normalizeInPlace()
         const d = sC.dot(sDir)
         sC.setXYZ(sC.x - sDir.x * d, sC.y - sDir.y * d, sC.z - sDir.z * d).normalizeInPlace()
         Vec3.crossInto(sDir, sC, sA)

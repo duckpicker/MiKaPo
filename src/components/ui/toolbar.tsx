@@ -8,19 +8,19 @@ import React from "react";
 type InputMode = "image" | "video" | "camera" | null
 
 export function Toolbar({
-    mediaPipeReady,
-    isStreamActive,
-    inputMode,
-    converting,
-    progress,
-    exported,
-    onToggleCamera,
-    onPickImage,
-    onPickVideo,
-    onExport,
-    onCancelConvert,
-    onReload
-  }: {
+                          mediaPipeReady,
+                          isStreamActive,
+                          inputMode,
+                          converting,
+                          progress,
+                          exported,
+                          onToggleCamera,
+                          onPickImage,
+                          onPickVideo,
+                          onExport,
+                          onCancelConvert,
+                          onReload
+                        }: {
   mediaPipeReady: boolean
   isStreamActive: boolean
   inputMode: InputMode

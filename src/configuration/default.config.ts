@@ -36,30 +36,6 @@ export const DEFAULT_CONFIG: MikapoConfig = {
     beta: 1.5,
     dCutoff: 4.0,
   },
-  face: {
-    enabled: true,
-    thresholds: {
-      eyeOpen: 0.3,
-      eyeClosed: 0.1,
-      mouthOpen: 0.18,
-      smile: 0.008,
-    },
-    smoothing: {
-      eyes: 0.5,
-      mouth: 0.5,
-      smile: 0.5,
-    },
-    gaze: {
-      enabled: true,
-      strength: 1.0,
-    },
-    morphs: {
-      blink: true,
-      wink: true,
-      mouth: true,
-      smile: true,
-    },
-  },
   mediapipe: {
     minPosePresenceConfidence: 0.5,
     minPoseDetectionConfidence: 0.5,

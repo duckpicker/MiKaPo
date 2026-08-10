@@ -36,7 +36,6 @@ async function init(): Promise<void> {
     })
   }
 
-  // Warm up: force shader compilation / tensor allocation before the first real frame
   try {
     const canvas = new OffscreenCanvas(256, 256)
     const ctx = canvas.getContext("2d")

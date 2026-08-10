@@ -60,8 +60,6 @@ export function buildClip(frames: RecordedFrame[]): AnimationClip {
   if (frames.length === 0) return { boneTracks, morphTracks, frameCount: 0 }
 
   const origin = frames[0].time
-  // Index by frame so a duplicate stamp overwrites rather than appending a
-  // second key at the same time, which VMD readers disagree about.
   const bones = new Map<string, Map<number, BoneKeyframe>>()
   const morphs = new Map<string, Map<number, MorphKeyframe>>()
   let last = 0
@@ -77,8 +75,6 @@ export function buildClip(frames: RecordedFrame[]): AnimationClip {
         boneName: bone.name,
         frame,
         rotation: new Quat(bone.rotation.x, bone.rotation.y, bone.rotation.z, bone.rotation.w),
-        // Only センター and the leg IK bones move; everything else keeps its
-        // rest translation, which is what MMD expects of a rotation rig.
         translation: bone.translation
           ? new Vec3(bone.translation.x, bone.translation.y, bone.translation.z)
           : ZERO,
@@ -100,15 +96,6 @@ export function buildClip(frames: RecordedFrame[]): AnimationClip {
   for (const [name, track] of morphs) {
     morphTracks.set(name, [...track.values()].sort((a, b) => a.frame - b.frame))
   }
-  // This capture solves FK rotations for the legs, so the leg IK chains have to
-  // stand down or they would drive the feet toward IK bones this motion never
-  // keyframes. Declared in the clip; the engine writes it into the file and
-  // honours it on playback.
-  // Leg IK is switched ON exactly when the capture actually keyframes the IK
-  // bones. Without those tracks MMD's solver would drag the legs toward IK
-  // bones the motion never touches, overriding the FK it does carry — with
-  // them, the file is a native MMD leg rig and editable as one. つま先ＩＫ stays
-  // down either way: nothing here solves toe direction.
   const drivesFootIk = bones.has("左足ＩＫ") || bones.has("右足ＩＫ")
   const ikTracks = new Map<string, { frame: number; enabled: boolean }[]>([
     ["左足ＩＫ", [{ frame: 0, enabled: drivesFootIk }]],

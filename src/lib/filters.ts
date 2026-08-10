@@ -1,7 +1,5 @@
 import { Quat, Vec3 } from "reze-engine"
 
-// One-Euro filter (Casiez et al. 2012): adaptive low-pass whose cutoff rises with
-// speed — smooths jitter at rest without lagging fast motion.
 export class OneEuroFilter {
   private prev: number | null = null
   private prevDeriv = 0
@@ -21,7 +19,6 @@ export class OneEuroFilter {
       return value
     }
     const dt = (ts - this.prevTs) / 1000
-    // Discontinuity (seek backward, long stall): reseed instead of smoothing across the cut.
     if (dt <= 0 || dt > 1.0) {
       this.prev = value
       this.prevDeriv = 0
@@ -88,7 +85,6 @@ export class QuaternionOneEuroFilter {
   constructor(minCutoff: number, beta: number, dCutoff: number) {
     this.minCutoff = minCutoff
     this.beta = beta
-    // The speed signal gets its own gentle low-pass, as One-Euro prescribes.
     this.speedFilter = new OneEuroFilter(dCutoff, 0, dCutoff)
   }
 
@@ -109,8 +105,6 @@ export class QuaternionOneEuroFilter {
       y = q.y,
       z = q.z,
       w = q.w
-    // Hemisphere flip: keep dot(prev, raw) >= 0 so the blend takes the short way
-    // around the 4D sphere.
     if (this.hasPrev && Quat.dot(this.prev, q) < 0) {
       x = -x
       y = -y
@@ -125,7 +119,6 @@ export class QuaternionOneEuroFilter {
       return out
     }
     const dt = (ts - this.prevTs) / 1000
-    // Discontinuity (seek backward, long stall): reseed rather than smooth across it.
     if (dt <= 0 || dt > 1.0) {
       out.setXYZW(x, y, z, w)
       this.prev.set(out)
@@ -134,17 +127,10 @@ export class QuaternionOneEuroFilter {
       return out
     }
 
-    // Angle between the last output and this sample, in radians per second.
     const dot = Math.min(1, Math.abs(this.prev.x * x + this.prev.y * y + this.prev.z * z + this.prev.w * w))
     const step = 2 * Math.acos(dot)
     let speed = step / dt
 
-    // Admit only what a limb could physically have done since the last frame:
-    // no faster than maxSpeed, and no more than maxAccel faster than it was
-    // already going. A glitch is throttled to near nothing because it comes
-    // from rest; a real snap builds over two or three frames and arrives
-    // essentially intact. The clamped speed is what feeds the cutoff, so an
-    // outlier can never widen the filter that is meant to suppress it.
     const allowed = Math.min(this.maxSpeed, this.prevSpeed + this.maxAccel * dt)
     if (speed > allowed && step > 1e-6) {
       const t = (allowed * dt) / step
@@ -167,7 +153,6 @@ export class QuaternionOneEuroFilter {
     const tau = 1 / (2 * Math.PI * cutoff)
     const alpha = 1 / (1 + tau / dt)
 
-    // One blend for the whole rotation, at one honest cutoff.
     out.setXYZW(
       this.prev.x + (x - this.prev.x) * alpha,
       this.prev.y + (y - this.prev.y) * alpha,
@@ -281,11 +266,10 @@ export function smoothTakeZeroPhase(
   opts?: { keepFastAbove?: number; fullyKeepAbove?: number },
 ): void {
   if (frames.length < 5) return
-  // Quadratic SG, 7-wide (±3 frames ≈ ±0.1 s at 30 fps).
   const K = [-2, 3, 6, 7, 6, 3, -2]
   const HALF = 3
-  const lo = opts?.keepFastAbove ?? 2.5 // rad/s — brisk gesture
-  const hi = opts?.fullyKeepAbove ?? 6.0 // rad/s — a kick or a snap
+  const lo = opts?.keepFastAbove ?? 2.5
+  const hi = opts?.fullyKeepAbove ?? 6.0
 
   const byBone = new Map<string, { q: Quat; frame: number }[]>()
   for (let i = 0; i < frames.length; i++) {
@@ -300,8 +284,6 @@ export function smoothTakeZeroPhase(
   const smoothed = new Quat(0, 0, 0, 1)
   for (const seq of byBone.values()) {
     if (seq.length < 7) continue
-    // Hemisphere-align the whole sequence first: component-wise weighting is
-    // meaningless across a sign flip.
     for (let i = 1; i < seq.length; i++) {
       if (Quat.dot(seq[i - 1].q, seq[i].q) < 0) {
         seq[i].q.setXYZW(-seq[i].q.x, -seq[i].q.y, -seq[i].q.z, -seq[i].q.w)
@@ -316,7 +298,7 @@ export function smoothTakeZeroPhase(
         wsum = 0
       for (let k = -HALF; k <= HALF; k++) {
         const j = i + k
-        if (j < 0 || j >= src.length) continue // shrink at the edges
+        if (j < 0 || j >= src.length) continue
         const c = K[k + HALF]
         x += src[j].x * c
         y += src[j].y * c
@@ -328,8 +310,7 @@ export function smoothTakeZeroPhase(
       smoothed.setXYZW(x / wsum, y / wsum, z / wsum, w / wsum)
       smoothed.normalize()
 
-      // Local angular speed from the ORIGINAL samples, so the gate reads the
-      // performance rather than its own output.
+
       const a = src[Math.max(0, i - 1)]
       const b = src[Math.min(src.length - 1, i + 1)]
       const dt = Math.max(1e-3, frames[seq[Math.min(seq.length - 1, i + 1)].frame].time - frames[seq[Math.max(0, i - 1)].frame].time)
@@ -337,7 +318,7 @@ export function smoothTakeZeroPhase(
       const keep = Math.min(1, Math.max(0, (speed - lo) / (hi - lo)))
 
       if (keep <= 0) aligned.set(smoothed)
-      else if (keep >= 1) continue // fast: original stands
+      else if (keep >= 1) continue
       else {
         Quat.nlerpInto(smoothed, src[i], keep, aligned)
         aligned.normalize()
