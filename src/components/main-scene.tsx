@@ -98,7 +98,6 @@ export default function MainScene() {
     try {
       await initEngineBase(canvasRef.current)
       const engine = engineRef.current!
-      configRef.current.applyToScene(engine)
       configRef.current.save()
 
       if (!USE_DEFAULT_ASSETS) {
@@ -120,7 +119,6 @@ export default function MainScene() {
         setModelLoaded(true)
         await new Promise((r) => requestAnimationFrame(r))
         buildRestPose(model)
-        followModel(model)
         setEngineError(null)
       } catch (loadErr) {
         setEngineError(loadErr instanceof Error ? loadErr.message : "Unknown error")
@@ -167,7 +165,6 @@ export default function MainScene() {
         await engine.autoStyleGroups(instanceKey, DEFAULT_STYLE_OVERRIDES)
         setModelLoaded(true)
         buildRestPose(model)
-        followModel(model)
         setEngineError(null)
       } catch (e) {
         console.error("[pmx-upload]", e)

@@ -66,7 +66,14 @@ export interface PanelsState {
   faceThresholds: FaceConfig["thresholds"]
   faceSmoothing: FaceConfig["smoothing"]
   faceGaze: FaceConfig["gaze"]
-  sceneCamera: { distance: number; followBone: string; followSmoothing: number; offsetY: number }
+  sceneCamera: {
+    distance: number
+    followBone: string
+    followSmoothing: number
+    offsetY: number
+    alpha: number
+    beta: number
+  }
   sceneBackground: SceneConfig["background"]
   sceneSun: {
     direction: { x: number; y: number; z: number }

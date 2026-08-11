@@ -10,9 +10,23 @@ const FOLLOW_BONES: { label: string; value: string }[] = [
 ]
 
 interface SettingsPanelProps {
-  camera: { distance: number; followBone: string; followSmoothing: number; offsetY: number }
+  camera: {
+    distance: number
+    followBone: string
+    followSmoothing: number
+    offsetY: number
+    alpha: number
+    beta: number
+  }
   onCameraChange: (
-    c: Partial<{ distance: number; followBone: string; followSmoothing: number; offsetY: number }>,
+    c: Partial<{
+      distance: number
+      followBone: string
+      followSmoothing: number
+      offsetY: number
+      alpha: number
+      beta: number
+    }>,
   ) => void
   background: { r: number; g: number; b: number } | null
   onBackgroundChange: (bg: { r: number; g: number; b: number } | null) => void
@@ -137,6 +151,22 @@ export function SettingsPanel({
           min={5}
           max={50}
           onChange={(v) => onCameraChange({ distance: v })}
+        />
+        <Slider
+          label="Alpha"
+          value={camera.alpha}
+          min={-3.14}
+          max={3.14}
+          step={0.1}
+          onChange={(v) => onCameraChange({ alpha: v })}
+        />
+        <Slider
+          label="Beta"
+          value={camera.beta}
+          min={-1.5}
+          max={1.5}
+          step={0.1}
+          onChange={(v) => onCameraChange({ beta: v })}
         />
         <Slider
           label="Offset Y"

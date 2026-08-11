@@ -56,6 +56,7 @@ export function Sidebar({ panels, actions, videoRef, currentImage, videoSrc, lan
   const [activeTab, setActiveTab] = useState<TabId | null>("media")
   const toggle = useCallback((tab: TabId) => setActiveTab((prev) => (prev === tab ? null : tab)), [])
   const isOpen = activeTab !== null
+  const [showPreview, setShowPreview] = useState(false)
   const p = panels
   const a = actions
 
@@ -83,7 +84,7 @@ export function Sidebar({ panels, actions, videoRef, currentImage, videoSrc, lan
         >
           <div className={activeTab === "media" ? "" : "hidden"}>
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Media</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Camera</span>
               <Button
                 onClick={a.onToggleCamera}
                 variant="ghost"
@@ -91,26 +92,17 @@ export function Sidebar({ panels, actions, videoRef, currentImage, videoSrc, lan
                 disabled={!p.mediaPipeReady}
                 className={`justify-start gap-2 text-xs ${p.isStreamActive ? "text-red-300" : "text-white/70"} hover:bg-white/10 hover:text-white`}
               >
-                <Webcam className="size-3.5" /> {p.isStreamActive ? "Stop camera" : "Start camera"}
+                <Webcam className="size-3.5" /> {p.isStreamActive ? "Stop Camera" : "Start Camera"}
               </Button>
-              <Button
-                onClick={a.onPickImage}
-                variant="ghost"
-                size="sm"
-                disabled={!p.mediaPipeReady}
-                className="justify-start gap-2 text-xs text-white/70 hover:bg-white/10 hover:text-white"
-              >
-                <ImageIcon className="size-3.5" /> Upload image
-              </Button>
-              <Button
-                onClick={a.onPickVideo}
-                variant="ghost"
-                size="sm"
-                disabled={!p.mediaPipeReady}
-                className="justify-start gap-2 text-xs text-white/70 hover:bg-white/10 hover:text-white"
-              >
-                <Video className="size-3.5" /> Upload video
-              </Button>
+              <label className="flex items-center gap-2 text-xs text-white/80 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showPreview}
+                  onChange={(e) => setShowPreview(e.target.checked)}
+                  className="size-3.5 accent-white"
+                />
+                Show Preview
+              </label>
             </div>
           </div>
           <div className={activeTab === "bones" ? "" : "hidden"}>
@@ -151,7 +143,7 @@ export function Sidebar({ panels, actions, videoRef, currentImage, videoSrc, lan
       </div>
 
       <div
-        className={`fixed right-4 bottom-4 z-20 flex flex-col gap-2 w-56 md:w-64 lg:w-72 transition-opacity ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        className={`fixed right-4 bottom-4 z-20 flex flex-col gap-2 w-56 md:w-64 lg:w-72 transition-opacity ${showPreview ? "opacity-100" : "opacity-0 pointer-events-none"}`}
       >
         <div className="aspect-video rounded-xl border border-white/10 bg-black/50 overflow-hidden">
           {p.inputMode === "image" && (
