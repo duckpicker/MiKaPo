@@ -64,11 +64,23 @@ export class ConfigurationModule {
   }
 
   download(filename = "mikapo-config.json"): void {
-    const blob = new Blob([this.toJSON()], { type: "application/json" })
+    const config = {
+      bones: {
+        groups: Object.fromEntries(
+          JSON.parse(localStorage.getItem("mikapo-bone-groups") || "[]").map((k: string) => [k, true]),
+        ),
+      },
+      scene: JSON.parse(localStorage.getItem("mikapo-scene-config") || "{}"),
+      face: JSON.parse(localStorage.getItem("mikapo-face-config") || "{}"),
+      mediapipe: JSON.parse(localStorage.getItem("mikapo-mediapipe-config") || "{}"),
+      smoothing: JSON.parse(localStorage.getItem("mikapo-scene-config") || "{}").smoothing,
+    }
+
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = filename
+    a.download = `mikapo-config-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
   }

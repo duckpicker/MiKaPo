@@ -7,7 +7,7 @@ import { FaceBlendshapeSolver } from "@/lib/face-blendshape-solver"
 import { useMediaPipe } from "./useMediaPipe"
 import { useVideoControls } from "./useVideoControls"
 import { useVmdExport } from "./useVmdExport"
-import { useBoneFilter } from "./useBoneFilter"
+import { DEFAULT_BONE_GROUPS, useBoneFilter } from "./useBoneFilter"
 import { useFaceConfig } from "./useFaceConfig"
 import { useSceneConfig } from "./useSceneConfig"
 import { useInputMode } from "./useInputMode"
@@ -20,6 +20,7 @@ import { buildClip } from "@/lib/vmd"
 import { Engine, Model } from "reze-engine"
 import { DEFAULT_MEDIAPIPE_CONFIG } from "@/configuration/constants/mediapipe"
 import { DEBUG_PREVIEW_INTERVAL_MS } from "@/configuration/constants/capture"
+import { ConfigurationModule } from "@/configuration"
 
 export function useMotionCapture({
   applyPose,
@@ -35,6 +36,7 @@ export function useMotionCapture({
   onFaceSolverReady,
   engineRef,
   modelRef,
+  configModule,
 }: {
   applyPose: (boneStates: BoneState[], tweenMs: number) => void
   applyFace: (faceResult: FaceSolverResult, tweenMs: number) => void
@@ -49,6 +51,7 @@ export function useMotionCapture({
   onFaceSolverReady?: (face: FaceBlendshapeSolver) => void
   engineRef: React.RefObject<Engine | null>
   modelRef: React.RefObject<Model | null>
+  configModule?: ConfigurationModule
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
@@ -57,6 +60,7 @@ export function useMotionCapture({
   const solverRef = useRef<Solver>(new Solver())
   const faceSolverRef = useRef<FaceBlendshapeSolver>(new FaceBlendshapeSolver())
   const [landmarks, setLandmarks] = useState<PoseWorkerResult | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { boneGroupsSet, handleBoneChange, filterPose } = useBoneFilter()
   const faceCfg = useFaceConfig(faceSolverRef)
@@ -154,6 +158,56 @@ export function useMotionCapture({
     onFaceSolverReady?.(faceSolverRef.current)
   }, [onSolverReady, onFaceSolverReady])
 
+  const handleLoadConfig = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const json = JSON.parse(await file.text())
+
+      if (json.scene) {
+        const sceneState = {
+          camera: {
+            distance: json.scene.camera?.distance ?? 12,
+            followBone: json.scene.camera?.followBone ?? "センター",
+            followSmoothing: json.scene.camera?.followSmoothing ?? 0.15,
+            offsetY: json.scene.camera?.offsetY ?? 0,
+            alpha: json.scene.camera?.alpha ?? 0,
+            beta: json.scene.camera?.beta ?? 0,
+          },
+          background: json.scene.background ?? { r: 0, g: 0.69, b: 0.14 },
+          sun: json.scene.sun ?? {
+            direction: { x: 0.5, y: -0.85, z: 0.15 },
+            strength: 2.5,
+            color: { r: 1, g: 0.95, b: 0.9 },
+          },
+          world: json.scene.world ?? { strength: 0.5, color: { r: 0.6, g: 0.7, b: 1 } },
+          smoothing: json.scene.smoothing ?? { minCutoff: 1.5, beta: 1.5, dCutoff: 4 },
+          groundEnabled: json.scene.groundEnabled ?? false,
+        }
+        localStorage.setItem("mikapo-scene-config", JSON.stringify(sceneState))
+      }
+
+      if (json.face) {
+        localStorage.setItem("mikapo-face-config", JSON.stringify(json.face))
+      }
+
+      if (json.bones?.groups) {
+        const enabled = Object.entries(json.bones.groups)
+          .filter(([k, v]) => v && DEFAULT_BONE_GROUPS.includes(k as any))
+          .map(([k]) => k)
+        localStorage.setItem("mikapo-bone-groups", JSON.stringify(enabled))
+      }
+
+      if (json.mediapipe) {
+        localStorage.setItem("mikapo-mediapipe-config", JSON.stringify(json.mediapipe))
+      }
+
+      window.location.reload()
+    } catch (err) {
+      console.error("Failed to load config:", err)
+    }
+  }
+
   const panels: PanelsState = {
     inputMode,
     isStreamActive,
@@ -189,7 +243,8 @@ export function useMotionCapture({
     onSceneSmoothingChange: sceneCfg.onSceneSmoothingChange,
     onMediaPipeConfigChange: (c) => setMediaPipeConfig((prev) => ({ ...prev, ...c })),
     onReload: handleReload,
-    onExport: handleExport,
+    onSaveConfig: () => configModule?.download(),
+    onLoadConfig: () => fileInputRef.current?.click(),
   }
 
   return {
@@ -211,5 +266,7 @@ export function useMotionCapture({
     cancelRef,
     handleImageUpload,
     handleVideoUpload,
+    fileInputRef,
+    handleLoadConfig,
   }
 }

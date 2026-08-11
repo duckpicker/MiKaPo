@@ -7,7 +7,7 @@ import { Quat } from "reze-engine"
 import type { BoneGroup } from "@/configuration/types"
 import type { BoneState } from "@/types/solver"
 
-const DEFAULT_BONE_GROUPS: BoneGroup[] = [
+export const DEFAULT_BONE_GROUPS: BoneGroup[] = [
   "head",
   "upperTorso",
   "lowerTorso",

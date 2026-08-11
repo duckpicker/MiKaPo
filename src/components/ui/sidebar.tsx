@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useCallback, Suspense } from "react"
-import { Webcam, Bone, Smile, RotateCw, Download, Video, ImageIcon, Camera, Mountain, Cpu } from "lucide-react"
+import { useState, useCallback, Suspense, useRef } from "react"
+import { Webcam, Bone, Smile, RotateCw, Download, Video, ImageIcon, Camera, Mountain, Cpu, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { BoneToggles } from "./bone-toggles"
@@ -11,6 +11,7 @@ import { MediaPipePanel } from "./mediapipe-panel"
 import Image from "next/image"
 import type { PanelsState, PanelsActions } from "@/configuration/types"
 import type { PoseWorkerResult } from "@/types/pose-worker"
+import { ConfigurationModule } from "@/configuration"
 
 type TabId = "media" | "bones" | "face" | "world" | "mediapipe"
 
@@ -76,7 +77,8 @@ export function Sidebar({ panels, actions, videoRef, currentImage, videoSrc, lan
           />
           <div className="my-0.5 h-px bg-white/10" />
           <TabIcon icon={RotateCw} label="Reload" onClick={a.onReload} />
-          <TabIcon icon={Download} label="Export" onClick={a.onExport} />
+          <TabIcon icon={Download} label="Save Config" onClick={a.onSaveConfig} />
+          <TabIcon icon={Upload} label="Load Config" onClick={a.onLoadConfig} />
         </div>
 
         <div

@@ -30,8 +30,6 @@ export const MotionCapture = (props: {
   const {
     videoRef,
     imageRef,
-    imageInputRef,
-    videoInputRef,
     videoControls,
     inputMode,
     isStreamActive,
@@ -40,8 +38,8 @@ export const MotionCapture = (props: {
     landmarks,
     panels,
     actions,
-    handleImageUpload,
-    handleVideoUpload,
+    fileInputRef,
+    handleLoadConfig,
   } = useMotionCapture(props)
 
   return (
@@ -75,8 +73,7 @@ export const MotionCapture = (props: {
         landmarks={landmarks}
         DebugScene={DebugScene}
       />
-      <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageUpload} />
-      <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={handleVideoUpload} />
+      <input ref={fileInputRef} type="file" accept=".json" hidden onChange={handleLoadConfig} />
     </>
   )
 }

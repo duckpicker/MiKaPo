@@ -102,5 +102,6 @@ export interface PanelsActions {
   onSceneSmoothingChange: (s: Partial<SmoothingConfig>) => void
   onMediaPipeConfigChange: (c: Partial<MediaPipeConfig>) => void
   onReload: () => void
-  onExport: () => void
+  onSaveConfig: () => void
+  onLoadConfig: () => void
 }
