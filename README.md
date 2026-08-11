@@ -33,6 +33,7 @@ Electron + Next.js + Reze Engine (WebGPU MMD) + MediaPipe HolisticLandmarker
 ```bash
 npm install
 npm run dev
+```
 
 ## License
 
