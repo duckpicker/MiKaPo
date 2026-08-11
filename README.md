@@ -37,6 +37,6 @@ npm run dev
 
 ## License
 
-MIT — see [LICENSE](./LICENSE) file.
+GNU General Public License v3.0 — see [LICENSE](./LICENSE).
 
-Forked from [MiKaPo by AmyangXYZ](https://github.com/AmyangXYZ/MiKaPo).
+Based on [MiKaPo](https://github.com/AmyangXYZ/MiKaPo) (MIT) and [Reze Engine](https://github.com/AmyangXYZ/reze-engine) (GPL v3).
