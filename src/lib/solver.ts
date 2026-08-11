@@ -470,8 +470,6 @@ export class Solver {
       if (v) this.refs[key] = v
     }
 
-    console.log(restWorldPos)
-
     set("左腕", dir("左腕", "左ひじ"))
     set("右腕", dir("右腕", "右ひじ"))
     set("左ひじ", dir("左ひじ", "左手首"))

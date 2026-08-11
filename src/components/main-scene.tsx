@@ -118,7 +118,6 @@ export default function MainScene() {
         loadedModelNameRef.current = DEFAULT_MODEL_KEY
         await engine.autoStyleGroups(DEFAULT_MODEL_KEY, DEFAULT_STYLE_OVERRIDES)
         setModelLoaded(true)
-        if (solverRef.current) configRef.current.applyToSolver(solverRef.current)
         await new Promise((r) => requestAnimationFrame(r))
         buildRestPose(model)
         followModel(model)
@@ -326,7 +325,6 @@ export default function MainScene() {
         configModule={configRef.current}
         onSolverReady={(s) => {
           solverRef.current = s
-          configRef.current.applyToSolver(s)
         }}
         onFaceSolverReady={(f) => {
           faceSolverRef.current = f

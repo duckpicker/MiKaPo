@@ -10,10 +10,10 @@ export const HOLISTIC_CREATE_OPTIONS = {
   },
   numFaces: 1,
   numHands: 2,
-  minPosePresenceConfidence: 0.5,
-  minPoseDetectionConfidence: 0.5,
+  minPosePresenceConfidence: 0.7,
+  minPoseDetectionConfidence: 0.7,
   minFaceDetectionConfidence: 0.5,
-  minHandLandmarksConfidence: 0.95,
+  minHandLandmarksConfidence: 0.8,
   runningMode: "VIDEO" as const,
   enableFaceGeometry: true,
 } as const
