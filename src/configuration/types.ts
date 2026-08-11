@@ -1,4 +1,5 @@
 import { FaceThresholds } from "@/types/face"
+import { InputMode } from "@/hooks/useMediaPipe"
 
 export type BoneGroup =
   "head" | "upperTorso" | "lowerTorso" | "leftArm" | "rightArm" | "leftLeg" | "rightLeg" | "fingers"
@@ -35,21 +36,9 @@ export interface SmoothingConfig {
 export interface FaceConfig {
   enabled: boolean
   thresholds: FaceThresholds
-  smoothing: {
-    eyes: number
-    mouth: number
-    smile: number
-  }
-  gaze: {
-    enabled: boolean
-    strength: number
-  }
-  morphs: {
-    blink: boolean
-    wink: boolean
-    mouth: boolean
-    smile: boolean
-  }
+  smoothing: { eyes: number; mouth: number; smile: number }
+  gaze: { enabled: boolean; strength: number }
+  morphs: { blink: boolean; wink: boolean; mouth: boolean; smile: boolean }
 }
 
 export interface MediaPipeConfig {
@@ -63,4 +52,48 @@ export interface MikapoConfig {
   scene: SceneConfig
   smoothing: SmoothingConfig
   mediapipe: MediaPipeConfig
+}
+
+// ── Panels (переиспользуют существующие типы) ──
+
+export interface PanelsState {
+  inputMode: InputMode
+  isStreamActive: boolean
+  mediaPipeReady: boolean
+  boneGroups: Set<BoneGroup>
+  faceEnabled: boolean
+  faceMorphs: FaceConfig["morphs"]
+  faceThresholds: FaceConfig["thresholds"]
+  faceSmoothing: FaceConfig["smoothing"]
+  faceGaze: FaceConfig["gaze"]
+  sceneCamera: { distance: number; followBone: string; followSmoothing: number; offsetY: number }
+  sceneBackground: SceneConfig["background"]
+  sceneSun: {
+    direction: { x: number; y: number; z: number }
+    strength: number
+    color: { r: number; g: number; b: number }
+  }
+  sceneWorld: { strength: number; color: { r: number; g: number; b: number } }
+  sceneSmoothing: SmoothingConfig
+  mediaPipeConfig: MediaPipeConfig
+}
+
+export interface PanelsActions {
+  onToggleCamera: () => void
+  onPickImage: () => void
+  onPickVideo: () => void
+  onBoneChange: (groups: Set<BoneGroup>) => void
+  onFaceEnabledChange: (on: boolean) => void
+  onFaceMorphChange: (m: Partial<FaceConfig["morphs"]>) => void
+  onFaceThresholdChange: (t: Partial<FaceConfig["thresholds"]>) => void
+  onFaceSmoothingChange: (s: Partial<FaceConfig["smoothing"]>) => void
+  onFaceGazeChange: (g: Partial<FaceConfig["gaze"]>) => void
+  onSceneCameraChange: (c: Partial<PanelsState["sceneCamera"]>) => void
+  onSceneBackgroundChange: (bg: PanelsState["sceneBackground"]) => void
+  onSceneSunChange: (s: Partial<PanelsState["sceneSun"]>) => void
+  onSceneWorldChange: (w: Partial<PanelsState["sceneWorld"]>) => void
+  onSceneSmoothingChange: (s: Partial<SmoothingConfig>) => void
+  onMediaPipeConfigChange: (c: Partial<MediaPipeConfig>) => void
+  onReload: () => void
+  onExport: () => void
 }

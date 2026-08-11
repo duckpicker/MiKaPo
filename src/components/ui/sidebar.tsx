@@ -5,66 +5,23 @@ import { Webcam, Bone, Smile, RotateCw, Download, Video, ImageIcon, Camera, Moun
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { BoneToggles } from "./bone-toggles"
-import type { BoneGroup, MediaPipeConfig } from "@/configuration/types"
-import type { InputMode } from "@/hooks/useMediaPipe"
-import type { PoseWorkerResult } from "@/types/pose-worker"
-import { FacePanel } from "@/components/ui/face-panel"
-import { SettingsPanel } from "@/components/ui/settings-panel"
+import { FacePanel } from "./face-panel"
+import { SettingsPanel } from "./settings-panel"
+import { MediaPipePanel } from "./mediapipe-panel"
 import Image from "next/image"
-import { MediaPipePanel } from "@/components/ui/mediapipe-panel"
+import type { PanelsState, PanelsActions } from "@/configuration/types"
+import type { PoseWorkerResult } from "@/types/pose-worker"
 
 type TabId = "media" | "bones" | "face" | "world" | "mediapipe"
 
 interface SidebarProps {
-  inputMode: InputMode
-  isStreamActive: boolean
-  mediaPipeReady: boolean
-  onToggleCamera: () => void
-  onPickImage: () => void
-  onPickVideo: () => void
-  boneGroups: Set<BoneGroup>
-  onBoneChange: (groups: Set<BoneGroup>) => void
-  onReload: () => void
-  onExport: () => void
+  panels: PanelsState
+  actions: PanelsActions
   videoRef: React.RefObject<HTMLVideoElement | null>
   currentImage: string
   videoSrc?: string
   landmarks: PoseWorkerResult | null
   DebugScene: React.ComponentType<{ landmarks: PoseWorkerResult | null }> | null
-  faceEnabled: boolean
-  onFaceEnabledChange: (on: boolean) => void
-  faceMorphs: { blink: boolean; wink: boolean; mouth: boolean; smile: boolean }
-  onFaceMorphChange: (m: Partial<{ blink: boolean; wink: boolean; mouth: boolean; smile: boolean }>) => void
-  faceThresholds: { eyeOpen: number; eyeClosed: number; mouthOpen: number; smile: number }
-  onFaceThresholdChange: (t: Partial<{ eyeOpen: number; eyeClosed: number; mouthOpen: number; smile: number }>) => void
-  faceSmoothing: { eyes: number; mouth: number; smile: number }
-  onFaceSmoothingChange: (s: Partial<{ eyes: number; mouth: number; smile: number }>) => void
-  faceGaze: { enabled: boolean; strength: number }
-  onFaceGazeChange: (g: Partial<{ enabled: boolean; strength: number }>) => void
-  sceneCamera: { distance: number; followBone: string; followSmoothing: number; offsetY: number }
-  onSceneCameraChange: (
-    c: Partial<{ distance: number; followBone: string; followSmoothing: number; offsetY: number }>,
-  ) => void
-  sceneBackground: { r: number; g: number; b: number } | null
-  onSceneBackgroundChange: (bg: { r: number; g: number; b: number } | null) => void
-  sceneSun: {
-    direction: { x: number; y: number; z: number }
-    strength: number
-    color: { r: number; g: number; b: number }
-  }
-  onSceneSunChange: (
-    s: Partial<{
-      direction: { x: number; y: number; z: number }
-      strength: number
-      color: { r: number; g: number; b: number }
-    }>,
-  ) => void
-  sceneWorld: { strength: number; color: { r: number; g: number; b: number } }
-  onSceneWorldChange: (w: Partial<{ strength: number; color: { r: number; g: number; b: number } }>) => void
-  sceneSmoothing: { minCutoff: number; beta: number; dCutoff: number }
-  onSceneSmoothingChange: (s: Partial<{ minCutoff: number; beta: number; dCutoff: number }>) => void
-  mediaPipeConfig: MediaPipeConfig
-  onMediaPipeConfigChange: (c: Partial<MediaPipeConfig>) => void
 }
 
 function TabIcon({
@@ -95,52 +52,12 @@ function TabIcon({
   )
 }
 
-export function Sidebar({
-  inputMode,
-  isStreamActive,
-  mediaPipeReady,
-  onToggleCamera,
-  onPickImage,
-  onPickVideo,
-  boneGroups,
-  onBoneChange,
-  onReload,
-  onExport,
-  videoRef,
-  currentImage,
-  videoSrc,
-  landmarks,
-  DebugScene,
-  faceEnabled,
-  onFaceEnabledChange,
-  faceMorphs,
-  onFaceMorphChange,
-  faceThresholds,
-  onFaceThresholdChange,
-  faceSmoothing,
-  onFaceSmoothingChange,
-  faceGaze,
-  onFaceGazeChange,
-  sceneCamera,
-  onSceneCameraChange,
-  sceneBackground,
-  onSceneBackgroundChange,
-  sceneSun,
-  onSceneSunChange,
-  sceneWorld,
-  onSceneWorldChange,
-  sceneSmoothing,
-  onSceneSmoothingChange,
-  mediaPipeConfig,
-  onMediaPipeConfigChange,
-}: SidebarProps) {
+export function Sidebar({ panels, actions, videoRef, currentImage, videoSrc, landmarks, DebugScene }: SidebarProps) {
   const [activeTab, setActiveTab] = useState<TabId | null>("media")
-
-  const toggle = useCallback((tab: TabId) => {
-    setActiveTab((prev) => (prev === tab ? null : tab))
-  }, [])
-
+  const toggle = useCallback((tab: TabId) => setActiveTab((prev) => (prev === tab ? null : tab)), [])
   const isOpen = activeTab !== null
+  const p = panels
+  const a = actions
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -157,8 +74,8 @@ export function Sidebar({
             onClick={() => toggle("mediapipe")}
           />
           <div className="my-0.5 h-px bg-white/10" />
-          <TabIcon icon={RotateCw} label="Reload" onClick={onReload} />
-          <TabIcon icon={Download} label="Export" onClick={onExport} />
+          <TabIcon icon={RotateCw} label="Reload" onClick={a.onReload} />
+          <TabIcon icon={Download} label="Export" onClick={a.onExport} />
         </div>
 
         <div
@@ -168,28 +85,28 @@ export function Sidebar({
             <div className="flex flex-col gap-1.5">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Media</span>
               <Button
-                onClick={onToggleCamera}
+                onClick={a.onToggleCamera}
                 variant="ghost"
                 size="sm"
-                disabled={!mediaPipeReady}
-                className={`justify-start gap-2 text-xs ${isStreamActive ? "text-red-300" : "text-white/70"} hover:bg-white/10 hover:text-white`}
+                disabled={!p.mediaPipeReady}
+                className={`justify-start gap-2 text-xs ${p.isStreamActive ? "text-red-300" : "text-white/70"} hover:bg-white/10 hover:text-white`}
               >
-                <Webcam className="size-3.5" /> {isStreamActive ? "Stop camera" : "Start camera"}
+                <Webcam className="size-3.5" /> {p.isStreamActive ? "Stop camera" : "Start camera"}
               </Button>
               <Button
-                onClick={onPickImage}
+                onClick={a.onPickImage}
                 variant="ghost"
                 size="sm"
-                disabled={!mediaPipeReady}
+                disabled={!p.mediaPipeReady}
                 className="justify-start gap-2 text-xs text-white/70 hover:bg-white/10 hover:text-white"
               >
                 <ImageIcon className="size-3.5" /> Upload image
               </Button>
               <Button
-                onClick={onPickVideo}
+                onClick={a.onPickVideo}
                 variant="ghost"
                 size="sm"
-                disabled={!mediaPipeReady}
+                disabled={!p.mediaPipeReady}
                 className="justify-start gap-2 text-xs text-white/70 hover:bg-white/10 hover:text-white"
               >
                 <Video className="size-3.5" /> Upload video
@@ -197,38 +114,38 @@ export function Sidebar({
             </div>
           </div>
           <div className={activeTab === "bones" ? "" : "hidden"}>
-            <BoneToggles enabled={boneGroups} onChange={onBoneChange} />
+            <BoneToggles enabled={p.boneGroups} onChange={a.onBoneChange} />
           </div>
           <div className={activeTab === "face" ? "" : "hidden"}>
             <FacePanel
-              enabled={faceEnabled}
-              onEnabledChange={onFaceEnabledChange}
-              morphs={faceMorphs}
-              onMorphChange={onFaceMorphChange}
-              thresholds={faceThresholds}
-              onThresholdChange={onFaceThresholdChange}
-              smoothing={faceSmoothing}
-              onSmoothingChange={onFaceSmoothingChange}
-              gaze={faceGaze}
-              onGazeChange={onFaceGazeChange}
+              enabled={p.faceEnabled}
+              onEnabledChange={a.onFaceEnabledChange}
+              morphs={p.faceMorphs}
+              onMorphChange={a.onFaceMorphChange}
+              thresholds={p.faceThresholds}
+              onThresholdChange={a.onFaceThresholdChange}
+              smoothing={p.faceSmoothing}
+              onSmoothingChange={a.onFaceSmoothingChange}
+              gaze={p.faceGaze}
+              onGazeChange={a.onFaceGazeChange}
             />
           </div>
           <div className={activeTab === "world" ? "" : "hidden"}>
             <SettingsPanel
-              camera={sceneCamera}
-              onCameraChange={onSceneCameraChange}
-              background={sceneBackground}
-              onBackgroundChange={onSceneBackgroundChange}
-              sun={sceneSun}
-              onSunChange={onSceneSunChange}
-              world={sceneWorld}
-              onWorldChange={onSceneWorldChange}
-              smoothing={sceneSmoothing}
-              onSmoothingChange={onSceneSmoothingChange}
+              camera={p.sceneCamera}
+              onCameraChange={a.onSceneCameraChange}
+              background={p.sceneBackground}
+              onBackgroundChange={a.onSceneBackgroundChange}
+              sun={p.sceneSun}
+              onSunChange={a.onSceneSunChange}
+              world={p.sceneWorld}
+              onWorldChange={a.onSceneWorldChange}
+              smoothing={p.sceneSmoothing}
+              onSmoothingChange={a.onSceneSmoothingChange}
             />
           </div>
           <div className={activeTab === "mediapipe" ? "" : "hidden"}>
-            <MediaPipePanel config={mediaPipeConfig} onChange={onMediaPipeConfigChange} />
+            <MediaPipePanel config={p.mediaPipeConfig} onChange={a.onMediaPipeConfigChange} />
           </div>
         </div>
       </div>
@@ -237,21 +154,21 @@ export function Sidebar({
         className={`fixed right-4 bottom-4 z-20 flex flex-col gap-2 w-56 md:w-64 lg:w-72 transition-opacity ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
       >
         <div className="aspect-video rounded-xl border border-white/10 bg-black/50 overflow-hidden">
-          {inputMode === "image" && (
+          {p.inputMode === "image" && (
             <Image src={currentImage} alt="" width={320} height={180} className="w-full h-full object-contain" />
           )}
-          {(inputMode === "video" || inputMode === "camera") && (
+          {(p.inputMode === "video" || p.inputMode === "camera") && (
             <video
               ref={videoRef}
-              src={isStreamActive ? undefined : videoSrc}
-              className={`w-full h-full object-contain ${inputMode === "camera" ? "scale-x-[-1]" : ""}`}
+              src={p.isStreamActive ? undefined : videoSrc}
+              className={`w-full h-full object-contain ${p.inputMode === "camera" ? "scale-x-[-1]" : ""}`}
               playsInline
-              autoPlay={inputMode === "camera"}
+              autoPlay={p.inputMode === "camera"}
               disablePictureInPicture
               muted
             />
           )}
-          {!inputMode && (
+          {!p.inputMode && (
             <div className="flex items-center justify-center h-full">
               <Camera className="size-6 text-white/30" />
             </div>

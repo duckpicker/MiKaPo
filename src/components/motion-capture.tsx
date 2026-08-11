@@ -11,19 +11,14 @@ import { useFaceConfig } from "@/hooks/useFaceConfig"
 import { useInputMode } from "@/hooks/useInputMode"
 import { Sidebar } from "./ui/sidebar"
 import { ConfigurationModule } from "@/configuration"
-import type { BoneState, BodyCollider } from "@/types/solver"
-import type { FaceSolverResult, FaceMorphWeights } from "@/types/face"
-import type { PoseWorkerResult } from "@/types/pose-worker"
-import { buildClip } from "@/lib/vmd"
 import { useSceneConfig } from "@/hooks/useSceneConfig"
 import { useLocalStorage } from "@/hooks/useLocalStorage"
+import type { PanelsState, PanelsActions, MediaPipeConfig } from "@/configuration/types"
+import type { BoneState, BodyCollider } from "@/types/solver"
+import type { FaceSolverResult } from "@/types/face"
+import type { PoseWorkerResult } from "@/types/pose-worker"
+import { buildClip } from "@/lib/vmd"
 import { Engine, Model } from "reze-engine"
-
-interface MediaPipeConfig {
-  minPosePresenceConfidence: number
-  minPoseDetectionConfidence: number
-  minHandLandmarksConfidence: number
-}
 
 const DEFAULT_MEDIAPIPE_CONFIG: MediaPipeConfig = {
   minPosePresenceConfidence: 0.5,
@@ -33,7 +28,6 @@ const DEFAULT_MEDIAPIPE_CONFIG: MediaPipeConfig = {
 
 type DebugSceneProps = { landmarks: PoseWorkerResult | null }
 const DebugScene = lazy<ComponentType<DebugSceneProps>>(() => import("./debug-scene"))
-
 const DEBUG_PREVIEW_INTERVAL_MS = 66
 
 export const MotionCapture = ({
@@ -73,7 +67,6 @@ export const MotionCapture = ({
   const videoInputRef = useRef<HTMLInputElement>(null)
   const solverRef = useRef<Solver>(new Solver())
   const faceSolverRef = useRef<FaceBlendshapeSolver>(new FaceBlendshapeSolver())
-
   const [landmarks, setLandmarks] = useState<PoseWorkerResult | null>(null)
 
   const { boneGroupsSet, handleBoneChange, filterPose } = useBoneFilter()
@@ -83,7 +76,6 @@ export const MotionCapture = ({
     "mikapo-mediapipe-config",
     DEFAULT_MEDIAPIPE_CONFIG,
   )
-
   const resetAll = useCallback(() => {
     resetModel?.()
     solverRef.current.reset()
@@ -173,6 +165,44 @@ export const MotionCapture = ({
     onFaceSolverReady?.(faceSolverRef.current)
   }, [onSolverReady, onFaceSolverReady])
 
+  const panels: PanelsState = {
+    inputMode,
+    isStreamActive,
+    mediaPipeReady,
+    boneGroups: boneGroupsSet,
+    faceEnabled: faceCfg.faceEnabled,
+    faceMorphs: faceCfg.faceMorphs,
+    faceThresholds: faceCfg.faceThresholds,
+    faceSmoothing: faceCfg.faceSmoothing,
+    faceGaze: faceCfg.faceGaze,
+    sceneCamera: sceneCfg.sceneCamera,
+    sceneBackground: sceneCfg.sceneBackground,
+    sceneSun: sceneCfg.sceneSun,
+    sceneWorld: sceneCfg.sceneWorld,
+    sceneSmoothing: sceneCfg.sceneSmoothing,
+    mediaPipeConfig,
+  }
+
+  const actions: PanelsActions = {
+    onToggleCamera: toggleCamera,
+    onPickImage: () => imageInputRef.current?.click(),
+    onPickVideo: () => videoInputRef.current?.click(),
+    onBoneChange: handleBoneChange,
+    onFaceEnabledChange: faceCfg.setFaceEnabled,
+    onFaceMorphChange: faceCfg.setFaceMorphs,
+    onFaceThresholdChange: faceCfg.setFaceThresholds,
+    onFaceSmoothingChange: faceCfg.setFaceSmoothing,
+    onFaceGazeChange: faceCfg.setFaceGaze,
+    onSceneCameraChange: sceneCfg.onSceneCameraChange,
+    onSceneBackgroundChange: sceneCfg.onSceneBackgroundChange,
+    onSceneSunChange: sceneCfg.onSceneSunChange,
+    onSceneWorldChange: sceneCfg.onSceneWorldChange,
+    onSceneSmoothingChange: sceneCfg.onSceneSmoothingChange,
+    onMediaPipeConfigChange: (c) => setMediaPipeConfig((prev) => ({ ...prev, ...c })),
+    onReload: handleReload,
+    onExport: handleExport,
+  }
+
   return (
     <>
       <video
@@ -189,54 +219,21 @@ export const MotionCapture = ({
         onLoadedMetadata={(e) => videoControls.resolveDuration(e.currentTarget)}
         onDurationChange={(e) => videoControls.resolveDuration(e.currentTarget)}
       />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         ref={imageRef}
         src={currentImage}
         alt=""
         className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none"
       />
-
       <Sidebar
-        inputMode={inputMode}
-        isStreamActive={isStreamActive}
-        mediaPipeReady={mediaPipeReady}
-        onToggleCamera={toggleCamera}
-        onPickImage={() => imageInputRef.current?.click()}
-        onPickVideo={() => videoInputRef.current?.click()}
-        boneGroups={boneGroupsSet}
-        onBoneChange={handleBoneChange}
-        onReload={handleReload}
-        onExport={handleExport}
+        panels={panels}
+        actions={actions}
         videoRef={videoRef}
         currentImage={currentImage}
         videoSrc={videoSrc}
         landmarks={landmarks}
         DebugScene={DebugScene}
-        faceEnabled={faceCfg.faceEnabled}
-        onFaceEnabledChange={faceCfg.setFaceEnabled}
-        faceMorphs={faceCfg.faceMorphs}
-        onFaceMorphChange={faceCfg.setFaceMorphs}
-        faceThresholds={faceCfg.faceThresholds}
-        onFaceThresholdChange={faceCfg.setFaceThresholds}
-        faceSmoothing={faceCfg.faceSmoothing}
-        onFaceSmoothingChange={faceCfg.setFaceSmoothing}
-        faceGaze={faceCfg.faceGaze}
-        onFaceGazeChange={faceCfg.setFaceGaze}
-        sceneCamera={sceneCfg.sceneCamera}
-        onSceneCameraChange={sceneCfg.onSceneCameraChange}
-        sceneBackground={sceneCfg.sceneBackground}
-        onSceneBackgroundChange={sceneCfg.onSceneBackgroundChange}
-        sceneSun={sceneCfg.sceneSun}
-        onSceneSunChange={sceneCfg.onSceneSunChange}
-        sceneWorld={sceneCfg.sceneWorld}
-        onSceneWorldChange={sceneCfg.onSceneWorldChange}
-        sceneSmoothing={sceneCfg.sceneSmoothing}
-        onSceneSmoothingChange={sceneCfg.onSceneSmoothingChange}
-        mediaPipeConfig={mediaPipeConfig}
-        onMediaPipeConfigChange={(c) => setMediaPipeConfig((prev) => ({ ...prev, ...c }))}
       />
-
       <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageUpload} />
       <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={handleVideoUpload} />
     </>
