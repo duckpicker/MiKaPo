@@ -49,7 +49,12 @@ export function useSceneConfig(
 
     const model = modelRef.current
     if (model) {
-      engine.setCameraFollow(model, scene.camera.followBone, new Vec3(0, scene.camera.offsetY, 0), scene.camera.followSmoothing)
+      engine.setCameraFollow(
+        model,
+        scene.camera.followBone,
+        new Vec3(0, scene.camera.offsetY, 0),
+        scene.camera.followSmoothing,
+      )
     }
 
     const bg = scene.background
@@ -79,7 +84,12 @@ export function useSceneConfig(
       }
 
       engine.setCameraDistance(scene.camera.distance)
-      engine.setCameraFollow(model, scene.camera.followBone, new Vec3(0, scene.camera.offsetY, 0), scene.camera.followSmoothing)
+      engine.setCameraFollow(
+        model,
+        scene.camera.followBone,
+        new Vec3(0, scene.camera.offsetY, 0),
+        scene.camera.followSmoothing,
+      )
       engine.setSun({
         direction: new Vec3(scene.sun.direction.x, scene.sun.direction.y, scene.sun.direction.z),
         strength: scene.sun.strength,
@@ -95,23 +105,24 @@ export function useSceneConfig(
     }
 
     tryApply()
-  }, [modelLoaded])
+  }, [modelLoaded, engineRef, modelRef, scene, solverRef])
 
   return {
     sceneCamera: scene.camera,
     onSceneCameraChange: useCallback((c: Partial<SceneState["camera"]>) => {
-      setScene(prev => ({ ...prev, camera: { ...prev.camera, ...c } }))
+      setScene((prev) => ({ ...prev, camera: { ...prev.camera, ...c } }))
     }, []),
     sceneBackground: scene.background,
     onSceneBackgroundChange: useCallback((bg: SceneState["background"]) => {
-      setScene(prev => ({ ...prev, background: bg }))
+      setScene((prev) => ({ ...prev, background: bg }))
     }, []),
     sceneSun: scene.sun,
     onSceneSunChange: useCallback((s: Partial<SceneState["sun"]>) => {
-      setScene(prev => ({
+      setScene((prev) => ({
         ...prev,
         sun: {
-          ...prev.sun, ...s,
+          ...prev.sun,
+          ...s,
           direction: s.direction ? { ...prev.sun.direction, ...s.direction } : prev.sun.direction,
           color: s.color ? { ...prev.sun.color, ...s.color } : prev.sun.color,
         },
@@ -119,17 +130,18 @@ export function useSceneConfig(
     }, []),
     sceneWorld: scene.world,
     onSceneWorldChange: useCallback((w: Partial<SceneState["world"]>) => {
-      setScene(prev => ({
+      setScene((prev) => ({
         ...prev,
         world: {
-          ...prev.world, ...w,
+          ...prev.world,
+          ...w,
           color: w.color ? { ...prev.world.color, ...w.color } : prev.world.color,
         },
       }))
     }, []),
     sceneSmoothing: scene.smoothing,
     onSceneSmoothingChange: useCallback((s: Partial<SceneState["smoothing"]>) => {
-      setScene(prev => ({ ...prev, smoothing: { ...prev.smoothing, ...s } }))
+      setScene((prev) => ({ ...prev, smoothing: { ...prev.smoothing, ...s } }))
     }, []),
   }
 }

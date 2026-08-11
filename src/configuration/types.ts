@@ -1,6 +1,7 @@
-import { FaceThresholds } from "@/types/face";
+import { FaceThresholds } from "@/types/face"
 
-export type BoneGroup = "head" | "upperTorso" | "lowerTorso" | "leftArm" | "rightArm" | "leftLeg" | "rightLeg" | "fingers"
+export type BoneGroup =
+  "head" | "upperTorso" | "lowerTorso" | "leftArm" | "rightArm" | "leftLeg" | "rightLeg" | "fingers"
 
 export interface BoneFilterConfig {
   groups: Record<BoneGroup, boolean>

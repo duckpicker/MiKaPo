@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button"
 import type { EngineStats } from "reze-engine"
 
 export function Header({
-    stats,
-    engineInited,
-    onOpenFolder,
-  }: {
+  stats,
+  engineInited,
+  onOpenFolder,
+}: {
   stats: EngineStats | null
   engineInited: boolean
   onOpenFolder: () => void
@@ -32,14 +32,35 @@ export function Header({
           <div className="h-4 w-px bg-white/10" />
 
           <div className="flex items-center">
-            <Button variant="ghost" size="sm" asChild className="h-8 px-2.5 text-xs font-normal text-white/70 hover:bg-white/10 hover:text-white">
-              <Link href="https://reze.one" target="_blank">Engine</Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="h-8 px-2.5 text-xs font-normal text-white/70 hover:bg-white/10 hover:text-white"
+            >
+              <Link href="https://reze.one" target="_blank">
+                Engine
+              </Link>
             </Button>
-            <Button variant="ghost" size="sm" asChild className="h-8 px-2.5 text-xs font-normal text-white/70 hover:bg-white/10 hover:text-white">
-              <Link href="https://reze.studio" target="_blank">Animation</Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="h-8 px-2.5 text-xs font-normal text-white/70 hover:bg-white/10 hover:text-white"
+            >
+              <Link href="https://reze.studio" target="_blank">
+                Animation
+              </Link>
             </Button>
-            <Button variant="ghost" size="sm" asChild className="h-8 px-2.5 text-xs font-normal text-white/70 hover:bg-white/10 hover:text-white">
-              <Link href="https://reze.design" target="_blank">Design</Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="h-8 px-2.5 text-xs font-normal text-white/70 hover:bg-white/10 hover:text-white"
+            >
+              <Link href="https://reze.design" target="_blank">
+                Design
+              </Link>
             </Button>
           </div>
 

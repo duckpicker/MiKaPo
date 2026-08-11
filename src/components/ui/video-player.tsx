@@ -13,12 +13,12 @@ interface VideoControls {
 }
 
 export function VideoPlayer({
-    videoRef,
-    src,
-    isCamera,
-    controls,
-    converting,
-  }: {
+  videoRef,
+  src,
+  isCamera,
+  controls,
+  converting,
+}: {
   videoRef: React.RefObject<HTMLVideoElement | null>
   src: string | undefined
   isCamera: boolean

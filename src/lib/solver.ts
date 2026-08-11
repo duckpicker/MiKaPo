@@ -3,18 +3,31 @@ import { Quat, Vec3 } from "reze-engine"
 import { QuaternionOneEuroFilter, Vec3OneEuroFilter } from "./filters"
 import { HandIndexTable, PoseLandmarksTable } from "../constants/landmarks"
 import type {
-  BodyCollider, BoneState, SolverInput,
-  LandmarkSource, Point, BasisDef, BendLimit,
-  DirectionDef, TwistDef, FingerRatioDef, BoneDef, XYZ
+  BodyCollider,
+  BoneState,
+  SolverInput,
+  LandmarkSource,
+  Point,
+  BasisDef,
+  BendLimit,
+  DirectionDef,
+  TwistDef,
+  FingerRatioDef,
+  BoneDef,
+  XYZ,
 } from "@/types/solver"
 import {
   DEG,
-  BONE_DEFS, DEF_BY_NAME,
-  GROUNDING_BONES, SHOULDER_BONES,
+  BONE_DEFS,
+  DEF_BY_NAME,
+  GROUNDING_BONES,
+  SHOULDER_BONES,
   DEFAULT_REFS,
   WITNESS_REST,
   BASIS_LANDMARKS,
-  MIN_VISIBILITY, WITNESS_FADE_LO, WITNESS_FADE_HI,
+  MIN_VISIBILITY,
+  WITNESS_FADE_LO,
+  WITNESS_FADE_HI,
 } from "@/constants/bones"
 
 const _clearA = Quat.identity()
@@ -139,7 +152,8 @@ export class Solver {
   private bodyVolumes: { x: number; y: number; z: number; r: number; half: number }[] = []
   /** Arm colliders in their own bone's rest frame, plus the chain geometry the
    *  clearance FK needs. */
-  private armVolumes: Record<string, { ox: number; oy: number; oz: number; r: number; half: number; upper: number }> = {}
+  private armVolumes: Record<string, { ox: number; oy: number; oz: number; r: number; half: number; upper: number }> =
+    {}
   private chestRest: { x: number; y: number; z: number } | null = null
 
   /**
@@ -149,10 +163,7 @@ export class Solver {
    * character occupies space, which is the 穿模 everyone reports.
    */
 
-  calibrateColliders(
-    colliders: BodyCollider[],
-    rest: Record<string, XYZ>,
-  ): void {
+  calibrateColliders(colliders: BodyCollider[], rest: Record<string, XYZ>): void {
     const chest = rest["上半身2"] ?? rest["上半身"]
     this.bodyVolumes = []
     this.armVolumes = {}
@@ -164,7 +175,13 @@ export class Solver {
       const r = c.shape === 1 ? Math.min(c.size.x, c.size.z) : c.size.x
       const half = c.shape === 2 ? c.size.y * 0.5 : 0
       if (TORSO_BONES.has(c.bone)) {
-        this.bodyVolumes.push({ x: c.position.x - chest.x, y: c.position.y - chest.y, z: c.position.z - chest.z, r, half })
+        this.bodyVolumes.push({
+          x: c.position.x - chest.x,
+          y: c.position.y - chest.y,
+          z: c.position.z - chest.z,
+          r,
+          half,
+        })
       } else if (c.bone.endsWith("腕") || c.bone.endsWith("ひじ")) {
         const bone = rest[c.bone]
         const child = rest[c.bone.endsWith("腕") ? c.bone.replace("腕", "ひじ") : c.bone.replace("ひじ", "手首")]
@@ -601,7 +618,6 @@ export class Solver {
 
     return this.outputs
   }
-
 
   private getRef(key: string): Vec3 {
     return this.refs[key] ?? DEFAULT_REFS[key]

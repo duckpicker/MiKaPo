@@ -71,14 +71,23 @@ export function useMediaPipe(
         pendingSince = now
         createImageBitmap(video)
           .then((bitmap) => send({ type: "video", bitmap, ts: performance.now(), mediaTs }, [bitmap]))
-          .catch(() => { pending = false })
-      } else if (imageRef.current && imageRef.current.complete && imageRef.current.naturalWidth > 0 && imageRef.current.src !== lastImgSrc) {
+          .catch(() => {
+            pending = false
+          })
+      } else if (
+        imageRef.current &&
+        imageRef.current.complete &&
+        imageRef.current.naturalWidth > 0 &&
+        imageRef.current.src !== lastImgSrc
+      ) {
         lastImgSrc = imageRef.current.src
         pending = true
         pendingSince = now
         createImageBitmap(imageRef.current)
           .then((bitmap) => send({ type: "image", bitmap, mediaTs: performance.now() }, [bitmap]))
-          .catch(() => { pending = false })
+          .catch(() => {
+            pending = false
+          })
       }
     }
     detect()
@@ -90,14 +99,19 @@ export function useMediaPipe(
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const awaitFrame = useCallback((bitmap: ImageBitmap, mediaTs: number, tick: number) => {
-    return new Promise<PoseWorkerResult | null>((resolve) => {
-      awaitingRef.current = resolve
-      send({ type: "video", bitmap, ts: tick, mediaTs }, [bitmap])
-    })
-  }, [send])
+  const awaitFrame = useCallback(
+    (bitmap: ImageBitmap, mediaTs: number, tick: number) => {
+      return new Promise<PoseWorkerResult | null>((resolve) => {
+        awaitingRef.current = resolve
+        send({ type: "video", bitmap, ts: tick, mediaTs }, [bitmap])
+      })
+    },
+    [send],
+  )
 
-  const setConverting = useCallback((v: boolean) => { convertingRef.current = v }, [])
+  const setConverting = useCallback((v: boolean) => {
+    convertingRef.current = v
+  }, [])
 
   const postMode = useCallback((mode: "VIDEO" | "IMAGE") => send({ type: "mode", running: mode }), [send])
   const postReset = useCallback(() => send({ type: "reset" }), [send])

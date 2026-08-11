@@ -2,25 +2,25 @@
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import {Camera, Image as ImageIcon, Video, Webcam, Pause, Download, Square, RotateCw} from "lucide-react"
-import React from "react";
+import { Camera, Image as ImageIcon, Video, Webcam, Pause, Download, Square, RotateCw } from "lucide-react"
+import React from "react"
 
 type InputMode = "image" | "video" | "camera" | null
 
 export function Toolbar({
-                          mediaPipeReady,
-                          isStreamActive,
-                          inputMode,
-                          converting,
-                          progress,
-                          exported,
-                          onToggleCamera,
-                          onPickImage,
-                          onPickVideo,
-                          onExport,
-                          onCancelConvert,
-                          onReload
-                        }: {
+  mediaPipeReady,
+  isStreamActive,
+  inputMode,
+  converting,
+  progress,
+  exported,
+  onToggleCamera,
+  onPickImage,
+  onPickVideo,
+  onExport,
+  onCancelConvert,
+  onReload,
+}: {
   mediaPipeReady: boolean
   isStreamActive: boolean
   inputMode: InputMode
@@ -49,12 +49,20 @@ export function Toolbar({
               {isStreamActive ? <Pause className="size-3.5" /> : <Webcam className="size-3.5" />}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{!mediaPipeReady ? "Loading…" : isStreamActive ? "Stop webcam" : "Start webcam"}</TooltipContent>
+          <TooltipContent>
+            {!mediaPipeReady ? "Loading…" : isStreamActive ? "Stop webcam" : "Start webcam"}
+          </TooltipContent>
         </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button onClick={onPickImage} variant="ghost" size="icon" className="size-7 text-white/70 hover:bg-white/10 hover:text-white" disabled={!mediaPipeReady}>
+            <Button
+              onClick={onPickImage}
+              variant="ghost"
+              size="icon"
+              className="size-7 text-white/70 hover:bg-white/10 hover:text-white"
+              disabled={!mediaPipeReady}
+            >
               <ImageIcon className="size-3.5" />
             </Button>
           </TooltipTrigger>
@@ -63,7 +71,13 @@ export function Toolbar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button onClick={onPickVideo} variant="ghost" size="icon" className="size-7 text-white/70 hover:bg-white/10 hover:text-white" disabled={!mediaPipeReady}>
+            <Button
+              onClick={onPickVideo}
+              variant="ghost"
+              size="icon"
+              className="size-7 text-white/70 hover:bg-white/10 hover:text-white"
+              disabled={!mediaPipeReady}
+            >
               <Video className="size-3.5" />
             </Button>
           </TooltipTrigger>
@@ -92,13 +106,22 @@ export function Toolbar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              {converting ? "Stop converting" : inputMode === "image" ? "Save this pose as a VMD file" : "Convert this video to a VMD file"}
+              {converting
+                ? "Stop converting"
+                : inputMode === "image"
+                  ? "Save this pose as a VMD file"
+                  : "Convert this video to a VMD file"}
             </TooltipContent>
           </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button onClick={onReload} variant="ghost" size="icon" className="size-7 text-white/70 hover:bg-white/10 hover:text-white">
+              <Button
+                onClick={onReload}
+                variant="ghost"
+                size="icon"
+                className="size-7 text-white/70 hover:bg-white/10 hover:text-white"
+              >
                 <RotateCw className="size-3.5" />
               </Button>
             </TooltipTrigger>
@@ -111,16 +134,23 @@ export function Toolbar({
 }
 
 function StatusPill({ inputMode }: { inputMode: InputMode }) {
-  if (inputMode === "camera") return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-red-300">
-      <span className="size-1.5 animate-pulse rounded-full bg-red-500" /> Live
-    </span>
-  )
-  if (inputMode === "video") return (
-    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/60">Video</span>
-  )
-  if (inputMode === "image") return (
-    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/60">Image</span>
-  )
+  if (inputMode === "camera")
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-red-300">
+        <span className="size-1.5 animate-pulse rounded-full bg-red-500" /> Live
+      </span>
+    )
+  if (inputMode === "video")
+    return (
+      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/60">
+        Video
+      </span>
+    )
+  if (inputMode === "image")
+    return (
+      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/60">
+        Image
+      </span>
+    )
   return null
 }

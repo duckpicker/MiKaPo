@@ -65,7 +65,7 @@ function DebugScene({ landmarks }: { landmarks: SkeletonLandmarks | null }) {
       landmarks: NormalizedLandmark[] | null,
       connections: { start: number; end: number }[],
       color: Color3,
-      meshNamePrefix: string
+      meshNamePrefix: string,
     ): void => {
       if (!sceneRef.current) return
 
@@ -82,20 +82,20 @@ function DebugScene({ landmarks }: { landmarks: SkeletonLandmarks | null }) {
           MeshBuilder.CreateLines(
             `debug_lines_${meshNamePrefix}_${index}`,
             { points: [start, end], instance: existing },
-            sceneRef.current
+            sceneRef.current,
           )
         } else {
           const lineMesh = MeshBuilder.CreateLines(
             `debug_lines_${meshNamePrefix}_${index}`,
             { points: [start, end], updatable: true },
-            sceneRef.current
+            sceneRef.current,
           )
           lineMesh.color = color
           lineMeshesRef.current.set(meshKey, lineMesh)
         }
       })
     },
-    []
+    [],
   )
 
   useEffect(() => {
@@ -106,13 +106,13 @@ function DebugScene({ landmarks }: { landmarks: SkeletonLandmarks | null }) {
       landmarks.leftHandWorldLandmarks[0],
       HolisticLandmarker.HAND_CONNECTIONS,
       new Color3(1, 1, 1),
-      "left_hand"
+      "left_hand",
     )
     drawConnections(
       landmarks.rightHandWorldLandmarks[0],
       HolisticLandmarker.HAND_CONNECTIONS,
       new Color3(1, 1, 1),
-      "right_hand"
+      "right_hand",
     )
   }, [landmarks, drawConnections])
 

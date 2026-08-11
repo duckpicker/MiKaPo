@@ -310,10 +310,12 @@ export function smoothTakeZeroPhase(
       smoothed.setXYZW(x / wsum, y / wsum, z / wsum, w / wsum)
       smoothed.normalize()
 
-
       const a = src[Math.max(0, i - 1)]
       const b = src[Math.min(src.length - 1, i + 1)]
-      const dt = Math.max(1e-3, frames[seq[Math.min(seq.length - 1, i + 1)].frame].time - frames[seq[Math.max(0, i - 1)].frame].time)
+      const dt = Math.max(
+        1e-3,
+        frames[seq[Math.min(seq.length - 1, i + 1)].frame].time - frames[seq[Math.max(0, i - 1)].frame].time,
+      )
       const speed = Quat.angleTo(a, b) / dt
       const keep = Math.min(1, Math.max(0, (speed - lo) / (hi - lo)))
 

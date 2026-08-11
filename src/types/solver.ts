@@ -1,7 +1,6 @@
 import { Landmark } from "@mediapipe/tasks-vision"
 import { Quat, Vec3 } from "reze-engine"
 
-
 export interface BodyCollider {
   bone: string
   shape: number
@@ -22,7 +21,6 @@ export interface SolverInput {
   leftHandWorldLandmarks: Landmark[][]
   rightHandWorldLandmarks: Landmark[][]
 }
-
 
 export type LandmarkSource = "pose" | "leftHand" | "rightHand"
 export type Point = string | [string, string]
@@ -71,7 +69,6 @@ export interface FingerRatioDef {
 }
 
 export type BoneDef = BasisDef | DirectionDef | TwistDef | FingerRatioDef
-
 
 export interface XYZ {
   x: number

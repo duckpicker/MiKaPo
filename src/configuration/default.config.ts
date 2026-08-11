@@ -1,4 +1,4 @@
-import { MikapoConfig } from "@/configuration/types";
+import { MikapoConfig } from "@/configuration/types"
 
 export const DEFAULT_CONFIG: MikapoConfig = {
   bones: {

@@ -16,6 +16,4 @@ export interface PoseWorkerResult {
 }
 
 export type PoseWorkerResponse =
-  | { type: "ready" }
-  | { type: "result"; result: PoseWorkerResult; mediaTs: number }
-  | { type: "error"; message: string }
+  { type: "ready" } | { type: "result"; result: PoseWorkerResult; mediaTs: number } | { type: "error"; message: string }

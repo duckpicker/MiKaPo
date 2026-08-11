@@ -17,9 +17,9 @@ const GROUP_LABELS: Record<BoneGroup, string> = {
 const ALL_GROUPS = Object.keys(GROUP_LABELS) as BoneGroup[]
 
 export function BoneToggles({
-    enabled,
-    onChange,
-  }: {
+  enabled,
+  onChange,
+}: {
   enabled: Set<BoneGroup>
   onChange: (enabled: Set<BoneGroup>) => void
 }) {

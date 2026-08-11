@@ -7,12 +7,23 @@ import { Quat } from "reze-engine"
 import type { BoneGroup } from "@/configuration/types"
 import type { BoneState } from "@/types/solver"
 
-const DEFAULT_BONE_GROUPS: BoneGroup[] = ["head", "upperTorso", "lowerTorso", "leftArm", "rightArm", "leftLeg", "rightLeg", "fingers"]
+const DEFAULT_BONE_GROUPS: BoneGroup[] = [
+  "head",
+  "upperTorso",
+  "lowerTorso",
+  "leftArm",
+  "rightArm",
+  "leftLeg",
+  "rightLeg",
+  "fingers",
+]
 
 export function useBoneFilter() {
   const [boneGroups, setBoneGroups] = useLocalStorage<BoneGroup[]>("mikapo-bone-groups", DEFAULT_BONE_GROUPS)
   const boneGroupsRef = useRef(boneGroups)
-  useEffect(() => { boneGroupsRef.current = boneGroups }, [boneGroups])
+  useEffect(() => {
+    boneGroupsRef.current = boneGroups
+  }, [boneGroups])
 
   const boneGroupsSet = new Set(boneGroups)
 
@@ -28,12 +39,15 @@ export function useBoneFilter() {
     if (groups.includes("leftLeg") || groups.includes("rightLeg")) activeNames.add("下半身")
     if (groups.includes("head")) activeNames.add("首")
 
-    return pose.map(b => activeNames.has(b.name) ? b : { name: b.name, rotation: Quat.identity() })
+    return pose.map((b) => (activeNames.has(b.name) ? b : { name: b.name, rotation: Quat.identity() }))
   }, [])
 
-  const handleBoneChange = useCallback((groups: Set<BoneGroup>) => {
-    setBoneGroups([...groups])
-  }, [setBoneGroups])
+  const handleBoneChange = useCallback(
+    (groups: Set<BoneGroup>) => {
+      setBoneGroups([...groups])
+    },
+    [setBoneGroups],
+  )
 
   return { boneGroupsSet, handleBoneChange, filterPose }
 }

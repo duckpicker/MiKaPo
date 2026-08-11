@@ -37,7 +37,7 @@ export function useFaceConfig(faceSolverRef: React.RefObject<FaceBlendshapeSolve
     f.setGazeStrength(face.gaze.strength)
   }, [face, faceSolverRef])
 
-  const update = (patch: Partial<FaceState>) => setFace(prev => ({ ...prev, ...patch }))
+  const update = (patch: Partial<FaceState>) => setFace((prev) => ({ ...prev, ...patch }))
 
   return {
     faceEnabled: face.enabled,

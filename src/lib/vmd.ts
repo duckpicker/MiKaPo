@@ -1,4 +1,11 @@
-import { Quat, Vec3, type AnimationClip, type BoneInterpolation, type BoneKeyframe, type MorphKeyframe } from "reze-engine"
+import {
+  Quat,
+  Vec3,
+  type AnimationClip,
+  type BoneInterpolation,
+  type BoneKeyframe,
+  type MorphKeyframe,
+} from "reze-engine"
 import { BoneState } from "./solver"
 import { FaceMorphWeights } from "./face-blendshape-solver"
 
@@ -75,9 +82,7 @@ export function buildClip(frames: RecordedFrame[]): AnimationClip {
         boneName: bone.name,
         frame,
         rotation: new Quat(bone.rotation.x, bone.rotation.y, bone.rotation.z, bone.rotation.w),
-        translation: bone.translation
-          ? new Vec3(bone.translation.x, bone.translation.y, bone.translation.z)
-          : ZERO,
+        translation: bone.translation ? new Vec3(bone.translation.x, bone.translation.y, bone.translation.z) : ZERO,
         interpolation: LINEAR,
       })
     }
@@ -91,10 +96,16 @@ export function buildClip(frames: RecordedFrame[]): AnimationClip {
   }
 
   for (const [name, track] of bones) {
-    boneTracks.set(name, [...track.values()].sort((a, b) => a.frame - b.frame))
+    boneTracks.set(
+      name,
+      [...track.values()].sort((a, b) => a.frame - b.frame),
+    )
   }
   for (const [name, track] of morphs) {
-    morphTracks.set(name, [...track.values()].sort((a, b) => a.frame - b.frame))
+    morphTracks.set(
+      name,
+      [...track.values()].sort((a, b) => a.frame - b.frame),
+    )
   }
   const drivesFootIk = bones.has("左足ＩＫ") || bones.has("右足ＩＫ")
   const ikTracks = new Map<string, { frame: number; enabled: boolean }[]>([

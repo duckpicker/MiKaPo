@@ -6,7 +6,7 @@ import { enabledBoneNames } from "./bone-filter"
 import { applySceneConfig } from "./scene"
 import { applySmoothingConfig } from "./smoothing"
 import { applyFaceConfig, isFaceEnabled } from "./face"
-import { DEFAULT_CONFIG } from "@/configuration/default.config";
+import { DEFAULT_CONFIG } from "@/configuration/default.config"
 
 export type { MikapoConfig, BoneFilterConfig, SceneConfig, SmoothingConfig, FaceConfig, MediaPipeConfig }
 export { isFaceEnabled, enabledBoneNames }

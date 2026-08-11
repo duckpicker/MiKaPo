@@ -1,7 +1,6 @@
 import { Vec3 } from "reze-engine"
 import type { BoneDef, BendLimit, DirectionDef, LandmarkSource } from "../types/solver"
-import { BoneGroup } from "@/configuration/types";
-
+import { BoneGroup } from "@/configuration/types"
 
 export const DEG = Math.PI / 180
 
@@ -16,12 +15,7 @@ export const THUMB_BEND: Record<"左" | "右", BendLimit> = {
   右: { axis: new Vec3(-1, 1, 0).normalize(), min: -25 * DEG, max: 80 * DEG, spreadMax: 40 * DEG },
 }
 
-export const fingerCurl = (
-  side: "左" | "右",
-  finger: string,
-  axis: Vec3,
-  ratios: [number, number],
-): BoneDef[] => [
+export const fingerCurl = (side: "左" | "右", finger: string, axis: Vec3, ratios: [number, number]): BoneDef[] => [
   { kind: "fingerRatio", name: `${side}${finger}２`, base: `${side}${finger}１`, bendAxis: axis, ratio: ratios[0] },
   { kind: "fingerRatio", name: `${side}${finger}３`, base: `${side}${finger}１`, bendAxis: axis, ratio: ratios[1] },
 ]
@@ -42,38 +36,110 @@ export const fingerBase = (
   bend: FINGER_BEND[side],
 })
 
-
 export const BONE_DEFS: BoneDef[] = [
   { kind: "basis", name: "上半身", parent: null },
-  { kind: "direction", name: "首", parent: "上半身", source: "pose", from: ["left_shoulder", "right_shoulder"], to: ["left_ear", "right_ear"] },
+  {
+    kind: "direction",
+    name: "首",
+    parent: "上半身",
+    source: "pose",
+    from: ["left_shoulder", "right_shoulder"],
+    to: ["left_ear", "right_ear"],
+  },
   { kind: "basis", name: "頭", parent: "首" },
   { kind: "basis", name: "下半身", parent: null },
 
-  { kind: "direction", name: "左足", parent: "下半身", source: "pose", from: "left_hip", to: "left_knee", witness: "左ひざ", rollFallback: "左足首" },
+  {
+    kind: "direction",
+    name: "左足",
+    parent: "下半身",
+    source: "pose",
+    from: "left_hip",
+    to: "left_knee",
+    witness: "左ひざ",
+    rollFallback: "左足首",
+  },
   { kind: "direction", name: "左ひざ", parent: "左足", source: "pose", from: "left_knee", to: "left_ankle" },
   { kind: "direction", name: "左足首", parent: "左ひざ", source: "pose", from: "left_ankle", to: "left_foot_index" },
 
-  { kind: "direction", name: "右足", parent: "下半身", source: "pose", from: "right_hip", to: "right_knee", witness: "右ひざ", rollFallback: "右足首" },
+  {
+    kind: "direction",
+    name: "右足",
+    parent: "下半身",
+    source: "pose",
+    from: "right_hip",
+    to: "right_knee",
+    witness: "右ひざ",
+    rollFallback: "右足首",
+  },
   { kind: "direction", name: "右ひざ", parent: "右足", source: "pose", from: "right_knee", to: "right_ankle" },
   { kind: "direction", name: "右足首", parent: "右ひざ", source: "pose", from: "right_ankle", to: "right_foot_index" },
 
-  { kind: "direction", name: "左腕", parent: "上半身", source: "pose", from: "left_shoulder", to: "left_elbow", witness: "左ひじ" },
+  {
+    kind: "direction",
+    name: "左腕",
+    parent: "上半身",
+    source: "pose",
+    from: "left_shoulder",
+    to: "left_elbow",
+    witness: "左ひじ",
+  },
   { kind: "direction", name: "左ひじ", parent: "左腕", source: "pose", from: "left_elbow", to: "left_wrist" },
-  { kind: "twist", name: "左手捩", parent: "左ひじ", source: "leftHand", from: "ring_mcp", to: "index_mcp", axisRef: "左ひじ" },
+  {
+    kind: "twist",
+    name: "左手捩",
+    parent: "左ひじ",
+    source: "leftHand",
+    from: "ring_mcp",
+    to: "index_mcp",
+    axisRef: "左ひじ",
+  },
   { kind: "direction", name: "左手首", parent: "左手捩", source: "leftHand", from: "wrist", to: "middle_mcp" },
 
-  { kind: "direction", name: "右腕", parent: "上半身", source: "pose", from: "right_shoulder", to: "right_elbow", witness: "右ひじ" },
+  {
+    kind: "direction",
+    name: "右腕",
+    parent: "上半身",
+    source: "pose",
+    from: "right_shoulder",
+    to: "right_elbow",
+    witness: "右ひじ",
+  },
   { kind: "direction", name: "右ひじ", parent: "右腕", source: "pose", from: "right_elbow", to: "right_wrist" },
-  { kind: "twist", name: "右手捩", parent: "右ひじ", source: "rightHand", from: "ring_mcp", to: "index_mcp", axisRef: "右ひじ" },
+  {
+    kind: "twist",
+    name: "右手捩",
+    parent: "右ひじ",
+    source: "rightHand",
+    from: "ring_mcp",
+    to: "index_mcp",
+    axisRef: "右ひじ",
+  },
   { kind: "direction", name: "右手首", parent: "右手捩", source: "rightHand", from: "wrist", to: "middle_mcp" },
 
-  { kind: "direction", name: "左親指１", parent: "左手首", source: "leftHand", from: "thumb_mcp", to: "thumb_ip", bend: THUMB_BEND["左"] },
+  {
+    kind: "direction",
+    name: "左親指１",
+    parent: "左手首",
+    source: "leftHand",
+    from: "thumb_mcp",
+    to: "thumb_ip",
+    bend: THUMB_BEND["左"],
+  },
   fingerBase("左", "leftHand", "人指", "index_mcp", "index_pip"),
   fingerBase("左", "leftHand", "中指", "middle_mcp", "middle_pip"),
   fingerBase("左", "leftHand", "薬指", "ring_mcp", "ring_pip"),
   fingerBase("左", "leftHand", "小指", "pinky_mcp", "pinky_pip"),
 
-  { kind: "direction", name: "右親指１", parent: "右手首", source: "rightHand", from: "thumb_mcp", to: "thumb_ip", bend: THUMB_BEND["右"] },
+  {
+    kind: "direction",
+    name: "右親指１",
+    parent: "右手首",
+    source: "rightHand",
+    from: "thumb_mcp",
+    to: "thumb_ip",
+    bend: THUMB_BEND["右"],
+  },
   fingerBase("右", "rightHand", "人指", "index_mcp", "index_pip"),
   fingerBase("右", "rightHand", "中指", "middle_mcp", "middle_pip"),
   fingerBase("右", "rightHand", "薬指", "ring_mcp", "ring_pip"),
@@ -91,31 +157,59 @@ export const BONE_DEFS: BoneDef[] = [
   ...fingerCurl("右", "小指", new Vec3(0.088, 0, 0.997).normalize(), [0.85, 0.55]),
 ]
 
-
-export const DEF_BY_NAME: Record<string, BoneDef> = Object.fromEntries(
-  BONE_DEFS.map((d) => [d.name, d]),
-)
-
+export const DEF_BY_NAME: Record<string, BoneDef> = Object.fromEntries(BONE_DEFS.map((d) => [d.name, d]))
 
 export const GROUNDING_BONES = ["センター", "左足ＩＫ", "右足ＩＫ"] as const
 export const SHOULDER_BONES = ["左肩", "右肩"] as const
 
-
 export const SOLVER_REST_BONES: readonly string[] = [
-  "左足", "右足", "左ひざ", "右ひざ", "左足首", "右足首",
-  "左つま先", "右つま先",
-  "首", "頭", "左肩", "右肩", "左目", "右目",
-  "上半身", "上半身2", "下半身",
-  "センター", "左足ＩＫ", "右足ＩＫ",
-  "左腕", "右腕", "左ひじ", "右ひじ", "左手首", "右手首",
-  "左中指１", "右中指１",
-  "左親指１", "左親指２", "右親指１", "右親指２",
-  "左人指１", "左人指２", "右人指１", "右人指２",
-  "左中指２", "右中指２",
-  "左薬指１", "左薬指２", "右薬指１", "右薬指２",
-  "左小指１", "左小指２", "右小指１", "右小指２",
+  "左足",
+  "右足",
+  "左ひざ",
+  "右ひざ",
+  "左足首",
+  "右足首",
+  "左つま先",
+  "右つま先",
+  "首",
+  "頭",
+  "左肩",
+  "右肩",
+  "左目",
+  "右目",
+  "上半身",
+  "上半身2",
+  "下半身",
+  "センター",
+  "左足ＩＫ",
+  "右足ＩＫ",
+  "左腕",
+  "右腕",
+  "左ひじ",
+  "右ひじ",
+  "左手首",
+  "右手首",
+  "左中指１",
+  "右中指１",
+  "左親指１",
+  "左親指２",
+  "右親指１",
+  "右親指２",
+  "左人指１",
+  "左人指２",
+  "右人指１",
+  "右人指２",
+  "左中指２",
+  "右中指２",
+  "左薬指１",
+  "左薬指２",
+  "右薬指１",
+  "右薬指２",
+  "左小指１",
+  "左小指２",
+  "右小指１",
+  "右小指２",
 ]
-
 
 export const DEFAULT_REFS: Record<string, Vec3> = {
   左腕: new Vec3(0.80917156, -0.58753001, -0.00706277).normalize(),
@@ -145,7 +239,6 @@ export const DEFAULT_REFS: Record<string, Vec3> = {
   右手捩: new Vec3(0, 0, -1),
 }
 
-
 export const WITNESS_REST: Record<string, Vec3> = {
   左腕: new Vec3(0, 0, -1),
   右腕: new Vec3(0, 0, -1),
@@ -172,15 +265,33 @@ export const BONE_GROUP_MEMBERS: Record<BoneGroup, string[]> = {
   leftLeg: ["左足", "左ひざ", "左足首"],
   rightLeg: ["右足", "右ひざ", "右足首"],
   fingers: [
-    "左親指１", "左親指２",
-    "左人指１", "左人指２", "左人指３",
-    "左中指１", "左中指２", "左中指３",
-    "左薬指１", "左薬指２", "左薬指３",
-    "左小指１", "左小指２", "左小指３",
-    "右親指１", "右親指２",
-    "右人指１", "右人指２", "右人指３",
-    "右中指１", "右中指２", "右中指３",
-    "右薬指１", "右薬指２", "右薬指３",
-    "右小指１", "右小指２", "右小指３",
+    "左親指１",
+    "左親指２",
+    "左人指１",
+    "左人指２",
+    "左人指３",
+    "左中指１",
+    "左中指２",
+    "左中指３",
+    "左薬指１",
+    "左薬指２",
+    "左薬指３",
+    "左小指１",
+    "左小指２",
+    "左小指３",
+    "右親指１",
+    "右親指２",
+    "右人指１",
+    "右人指２",
+    "右人指３",
+    "右中指１",
+    "右中指２",
+    "右中指３",
+    "右薬指１",
+    "右薬指２",
+    "右薬指３",
+    "右小指１",
+    "右小指２",
+    "右小指３",
   ],
 }

@@ -37,12 +37,12 @@ export class FaceBlendshapeSolver {
     return this.levels
   }
 
-  private leftOpenFilter = new OneEuroFilter(...Object.values(FACE_FILTER_FAST) as [number, number, number])
-  private rightOpenFilter = new OneEuroFilter(...Object.values(FACE_FILTER_FAST) as [number, number, number])
-  private mouthFilter = new OneEuroFilter(...Object.values(FACE_FILTER_FAST) as [number, number, number])
-  private smileFilter = new OneEuroFilter(...Object.values(FACE_FILTER_FAST) as [number, number, number])
-  private gazeXFilter = new OneEuroFilter(...Object.values(FACE_FILTER_GAZE) as [number, number, number])
-  private gazeYFilter = new OneEuroFilter(...Object.values(FACE_FILTER_GAZE) as [number, number, number])
+  private leftOpenFilter = new OneEuroFilter(...(Object.values(FACE_FILTER_FAST) as [number, number, number]))
+  private rightOpenFilter = new OneEuroFilter(...(Object.values(FACE_FILTER_FAST) as [number, number, number]))
+  private mouthFilter = new OneEuroFilter(...(Object.values(FACE_FILTER_FAST) as [number, number, number]))
+  private smileFilter = new OneEuroFilter(...(Object.values(FACE_FILTER_FAST) as [number, number, number]))
+  private gazeXFilter = new OneEuroFilter(...(Object.values(FACE_FILTER_GAZE) as [number, number, number]))
+  private gazeYFilter = new OneEuroFilter(...(Object.values(FACE_FILTER_GAZE) as [number, number, number]))
 
   constructor() {
     this.morphNames = Object.fromEntries(Object.keys(MORPH_ALIASES).map((n) => [n, n]))
@@ -51,8 +51,7 @@ export class FaceBlendshapeSolver {
   configure(availableMorphs: string[]): void {
     const available = new Set(availableMorphs)
     for (const canonical of Object.keys(MORPH_ALIASES)) {
-      this.morphNames[canonical] =
-        [canonical, ...MORPH_ALIASES[canonical]].find((n) => available.has(n)) ?? canonical
+      this.morphNames[canonical] = [canonical, ...MORPH_ALIASES[canonical]].find((n) => available.has(n)) ?? canonical
     }
   }
 
@@ -185,8 +184,8 @@ export class FaceBlendshapeSolver {
 
   private calculateEyeRotation(gazeX: number, gazeY: number): Quat {
     if (!this.gazeEnabled) return Quat.identity()
-    const maxHorizontalRotation = Math.PI / 6 * this.gazeStrength
-    const maxVerticalRotation = Math.PI / 12 * this.gazeStrength
+    const maxHorizontalRotation = (Math.PI / 6) * this.gazeStrength
+    const maxVerticalRotation = (Math.PI / 12) * this.gazeStrength
     const xRotation = gazeY * maxVerticalRotation
     const yRotation = -gazeX * maxHorizontalRotation
     return Quat.fromEuler(xRotation, yRotation, 0)
@@ -280,7 +279,9 @@ export class FaceBlendshapeSolver {
     return Math.max(min, Math.min(max, value))
   }
 
-  setEnabled(on: boolean): void { this.enabled = on }
+  setEnabled(on: boolean): void {
+    this.enabled = on
+  }
 
   setSmoothing(s: { eyes: number; mouth: number; smile: number }): void {
     this.smoothingScale = s
@@ -290,8 +291,12 @@ export class FaceBlendshapeSolver {
     this.smileFilter = new OneEuroFilter(0.5 + s.smile * 3, 5 + s.smile * 20, 1.0)
   }
 
-  setGazeEnabled(on: boolean): void { this.gazeEnabled = on }
-  setGazeStrength(s: number): void { this.gazeStrength = s }
+  setGazeEnabled(on: boolean): void {
+    this.gazeEnabled = on
+  }
+  setGazeStrength(s: number): void {
+    this.gazeStrength = s
+  }
 
   setMorphEnabled(morph: "blink" | "wink" | "mouth" | "smile", on: boolean): void {
     this.morphEnabled[morph] = on

@@ -1,15 +1,16 @@
 "use client"
 
 import { useState, useCallback, Suspense } from "react"
-import {Webcam, Bone, Smile, Settings, RotateCw, Download, Video, ImageIcon, Camera, Mountain} from "lucide-react"
+import { Webcam, Bone, Smile, RotateCw, Download, Video, ImageIcon, Camera, Mountain } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { BoneToggles } from "./bone-toggles"
 import type { BoneGroup } from "@/configuration/types"
 import type { InputMode } from "@/hooks/useMediaPipe"
 import type { PoseWorkerResult } from "@/types/pose-worker"
-import {FacePanel} from "@/components/ui/face-panel";
-import {SettingsPanel} from "@/components/ui/settings-panel";
+import { FacePanel } from "@/components/ui/face-panel"
+import { SettingsPanel } from "@/components/ui/settings-panel"
+import Image from "next/image"
 
 type TabId = "media" | "bones" | "face" | "world"
 
@@ -40,11 +41,23 @@ interface SidebarProps {
   faceGaze: { enabled: boolean; strength: number }
   onFaceGazeChange: (g: Partial<{ enabled: boolean; strength: number }>) => void
   sceneCamera: { distance: number; followBone: string; followSmoothing: number; offsetY: number }
-  onSceneCameraChange: (c: Partial<{ distance: number; followBone: string; followSmoothing: number; offsetY: number }>) => void
+  onSceneCameraChange: (
+    c: Partial<{ distance: number; followBone: string; followSmoothing: number; offsetY: number }>,
+  ) => void
   sceneBackground: { r: number; g: number; b: number } | null
   onSceneBackgroundChange: (bg: { r: number; g: number; b: number } | null) => void
-  sceneSun: { direction: { x: number; y: number; z: number }; strength: number; color: { r: number; g: number; b: number } }
-  onSceneSunChange: (s: Partial<{ direction: { x: number; y: number; z: number }; strength: number; color: { r: number; g: number; b: number } }>) => void
+  sceneSun: {
+    direction: { x: number; y: number; z: number }
+    strength: number
+    color: { r: number; g: number; b: number }
+  }
+  onSceneSunChange: (
+    s: Partial<{
+      direction: { x: number; y: number; z: number }
+      strength: number
+      color: { r: number; g: number; b: number }
+    }>,
+  ) => void
   sceneWorld: { strength: number; color: { r: number; g: number; b: number } }
   onSceneWorldChange: (w: Partial<{ strength: number; color: { r: number; g: number; b: number } }>) => void
   sceneSmoothing: { minCutoff: number; beta: number; dCutoff: number }
@@ -52,11 +65,11 @@ interface SidebarProps {
 }
 
 function TabIcon({
-    icon: Icon,
-    label,
-    active,
-    onClick,
-  }: {
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
   icon: React.ComponentType<{ className?: string }>
   label: string
   active?: boolean
@@ -80,21 +93,42 @@ function TabIcon({
 }
 
 export function Sidebar({
-    inputMode, isStreamActive, mediaPipeReady,
-    onToggleCamera, onPickImage, onPickVideo,
-    boneGroups, onBoneChange, onReload, onExport,
-    videoRef, currentImage, videoSrc, landmarks, DebugScene,
-    faceEnabled, onFaceEnabledChange,
-    faceMorphs, onFaceMorphChange,
-    faceThresholds, onFaceThresholdChange,
-    faceSmoothing, onFaceSmoothingChange,
-    faceGaze, onFaceGazeChange,
-    sceneCamera, onSceneCameraChange,
-    sceneBackground, onSceneBackgroundChange,
-    sceneSun, onSceneSunChange,
-    sceneWorld, onSceneWorldChange,
-    sceneSmoothing, onSceneSmoothingChange,
-  }: SidebarProps) {
+  inputMode,
+  isStreamActive,
+  mediaPipeReady,
+  onToggleCamera,
+  onPickImage,
+  onPickVideo,
+  boneGroups,
+  onBoneChange,
+  onReload,
+  onExport,
+  videoRef,
+  currentImage,
+  videoSrc,
+  landmarks,
+  DebugScene,
+  faceEnabled,
+  onFaceEnabledChange,
+  faceMorphs,
+  onFaceMorphChange,
+  faceThresholds,
+  onFaceThresholdChange,
+  faceSmoothing,
+  onFaceSmoothingChange,
+  faceGaze,
+  onFaceGazeChange,
+  sceneCamera,
+  onSceneCameraChange,
+  sceneBackground,
+  onSceneBackgroundChange,
+  sceneSun,
+  onSceneSunChange,
+  sceneWorld,
+  onSceneWorldChange,
+  sceneSmoothing,
+  onSceneSmoothingChange,
+}: SidebarProps) {
   const [activeTab, setActiveTab] = useState<TabId | null>("media")
 
   const toggle = useCallback((tab: TabId) => {
@@ -116,20 +150,37 @@ export function Sidebar({
           <TabIcon icon={Download} label="Export" onClick={onExport} />
         </div>
 
-        <div className={`w-64 rounded-xl border border-white/10 bg-zinc-950/60 p-3 backdrop-blur-md shadow-2xl shadow-black/40 transition-opacity ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+        <div
+          className={`w-64 rounded-xl border border-white/10 bg-zinc-950/60 p-3 backdrop-blur-md shadow-2xl shadow-black/40 transition-opacity ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        >
           <div className={activeTab === "media" ? "" : "hidden"}>
             <div className="flex flex-col gap-1.5">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Media</span>
-              <Button onClick={onToggleCamera} variant="ghost" size="sm" disabled={!mediaPipeReady}
-                      className={`justify-start gap-2 text-xs ${isStreamActive ? "text-red-300" : "text-white/70"} hover:bg-white/10 hover:text-white`}>
+              <Button
+                onClick={onToggleCamera}
+                variant="ghost"
+                size="sm"
+                disabled={!mediaPipeReady}
+                className={`justify-start gap-2 text-xs ${isStreamActive ? "text-red-300" : "text-white/70"} hover:bg-white/10 hover:text-white`}
+              >
                 <Webcam className="size-3.5" /> {isStreamActive ? "Stop camera" : "Start camera"}
               </Button>
-              <Button onClick={onPickImage} variant="ghost" size="sm" disabled={!mediaPipeReady}
-                      className="justify-start gap-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
+              <Button
+                onClick={onPickImage}
+                variant="ghost"
+                size="sm"
+                disabled={!mediaPipeReady}
+                className="justify-start gap-2 text-xs text-white/70 hover:bg-white/10 hover:text-white"
+              >
                 <ImageIcon className="size-3.5" /> Upload image
               </Button>
-              <Button onClick={onPickVideo} variant="ghost" size="sm" disabled={!mediaPipeReady}
-                      className="justify-start gap-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
+              <Button
+                onClick={onPickVideo}
+                variant="ghost"
+                size="sm"
+                disabled={!mediaPipeReady}
+                className="justify-start gap-2 text-xs text-white/70 hover:bg-white/10 hover:text-white"
+              >
                 <Video className="size-3.5" /> Upload video
               </Button>
             </div>
@@ -139,34 +190,58 @@ export function Sidebar({
           </div>
           <div className={activeTab === "face" ? "" : "hidden"}>
             <FacePanel
-              enabled={faceEnabled} onEnabledChange={onFaceEnabledChange}
-              morphs={faceMorphs} onMorphChange={onFaceMorphChange}
-              thresholds={faceThresholds} onThresholdChange={onFaceThresholdChange}
-              smoothing={faceSmoothing} onSmoothingChange={onFaceSmoothingChange}
-              gaze={faceGaze} onGazeChange={onFaceGazeChange}
+              enabled={faceEnabled}
+              onEnabledChange={onFaceEnabledChange}
+              morphs={faceMorphs}
+              onMorphChange={onFaceMorphChange}
+              thresholds={faceThresholds}
+              onThresholdChange={onFaceThresholdChange}
+              smoothing={faceSmoothing}
+              onSmoothingChange={onFaceSmoothingChange}
+              gaze={faceGaze}
+              onGazeChange={onFaceGazeChange}
             />
           </div>
           <div className={activeTab === "world" ? "" : "hidden"}>
             <SettingsPanel
-              camera={sceneCamera} onCameraChange={onSceneCameraChange}
-              background={sceneBackground} onBackgroundChange={onSceneBackgroundChange}
-              sun={sceneSun} onSunChange={onSceneSunChange}
-              world={sceneWorld} onWorldChange={onSceneWorldChange}
-              smoothing={sceneSmoothing} onSmoothingChange={onSceneSmoothingChange}
+              camera={sceneCamera}
+              onCameraChange={onSceneCameraChange}
+              background={sceneBackground}
+              onBackgroundChange={onSceneBackgroundChange}
+              sun={sceneSun}
+              onSunChange={onSceneSunChange}
+              world={sceneWorld}
+              onWorldChange={onSceneWorldChange}
+              smoothing={sceneSmoothing}
+              onSmoothingChange={onSceneSmoothingChange}
             />
           </div>
         </div>
       </div>
 
-      <div className={`fixed right-4 bottom-4 z-20 flex flex-col gap-2 w-56 md:w-64 lg:w-72 transition-opacity ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+      <div
+        className={`fixed right-4 bottom-4 z-20 flex flex-col gap-2 w-56 md:w-64 lg:w-72 transition-opacity ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      >
         <div className="aspect-video rounded-xl border border-white/10 bg-black/50 overflow-hidden">
-          {inputMode === "image" && <img src={currentImage} alt="" className="w-full h-full object-contain" />}
-          {(inputMode === "video" || inputMode === "camera") && (
-            <video ref={videoRef} src={isStreamActive ? undefined : videoSrc}
-                   className={`w-full h-full object-contain ${inputMode === "camera" ? "scale-x-[-1]" : ""}`}
-                   playsInline autoPlay={inputMode === "camera"} disablePictureInPicture muted />
+          {inputMode === "image" && (
+            <Image src={currentImage} alt="" width={320} height={180} className="w-full h-full object-contain" />
           )}
-          {!inputMode && <div className="flex items-center justify-center h-full"><Camera className="size-6 text-white/30" /></div>}
+          {(inputMode === "video" || inputMode === "camera") && (
+            <video
+              ref={videoRef}
+              src={isStreamActive ? undefined : videoSrc}
+              className={`w-full h-full object-contain ${inputMode === "camera" ? "scale-x-[-1]" : ""}`}
+              playsInline
+              autoPlay={inputMode === "camera"}
+              disablePictureInPicture
+              muted
+            />
+          )}
+          {!inputMode && (
+            <div className="flex items-center justify-center h-full">
+              <Camera className="size-6 text-white/30" />
+            </div>
+          )}
         </div>
         <div className="aspect-[16/10] rounded-xl border border-white/10 bg-black/50 overflow-hidden">
           <Suspense fallback={null}>{DebugScene && <DebugScene landmarks={landmarks} />}</Suspense>

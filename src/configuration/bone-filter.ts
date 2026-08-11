@@ -1,6 +1,6 @@
 import { BONE_DEFS, BONE_GROUP_MEMBERS } from "@/constants/bones"
 import type { BoneFilterConfig } from "./types"
-import type { BoneDef } from "@/types/solver";
+import type { BoneDef } from "@/types/solver"
 
 export { BONE_GROUP_MEMBERS }
 
