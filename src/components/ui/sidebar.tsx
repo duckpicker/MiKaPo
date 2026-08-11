@@ -1,18 +1,19 @@
 "use client"
 
 import { useState, useCallback, Suspense } from "react"
-import { Webcam, Bone, Smile, RotateCw, Download, Video, ImageIcon, Camera, Mountain } from "lucide-react"
+import { Webcam, Bone, Smile, RotateCw, Download, Video, ImageIcon, Camera, Mountain, Cpu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { BoneToggles } from "./bone-toggles"
-import type { BoneGroup } from "@/configuration/types"
+import type { BoneGroup, MediaPipeConfig } from "@/configuration/types"
 import type { InputMode } from "@/hooks/useMediaPipe"
 import type { PoseWorkerResult } from "@/types/pose-worker"
 import { FacePanel } from "@/components/ui/face-panel"
 import { SettingsPanel } from "@/components/ui/settings-panel"
 import Image from "next/image"
+import { MediaPipePanel } from "@/components/ui/mediapipe-panel"
 
-type TabId = "media" | "bones" | "face" | "world"
+type TabId = "media" | "bones" | "face" | "world" | "mediapipe"
 
 interface SidebarProps {
   inputMode: InputMode
@@ -62,6 +63,8 @@ interface SidebarProps {
   onSceneWorldChange: (w: Partial<{ strength: number; color: { r: number; g: number; b: number } }>) => void
   sceneSmoothing: { minCutoff: number; beta: number; dCutoff: number }
   onSceneSmoothingChange: (s: Partial<{ minCutoff: number; beta: number; dCutoff: number }>) => void
+  mediaPipeConfig: MediaPipeConfig
+  onMediaPipeConfigChange: (c: Partial<MediaPipeConfig>) => void
 }
 
 function TabIcon({
@@ -128,6 +131,8 @@ export function Sidebar({
   onSceneWorldChange,
   sceneSmoothing,
   onSceneSmoothingChange,
+  mediaPipeConfig,
+  onMediaPipeConfigChange,
 }: SidebarProps) {
   const [activeTab, setActiveTab] = useState<TabId | null>("media")
 
@@ -145,6 +150,12 @@ export function Sidebar({
           <TabIcon icon={Bone} label="Bones" active={activeTab === "bones"} onClick={() => toggle("bones")} />
           <TabIcon icon={Smile} label="Face" active={activeTab === "face"} onClick={() => toggle("face")} />
           <TabIcon icon={Mountain} label="World" active={activeTab === "world"} onClick={() => toggle("world")} />
+          <TabIcon
+            icon={Cpu}
+            label="MediaPipe"
+            active={activeTab === "mediapipe"}
+            onClick={() => toggle("mediapipe")}
+          />
           <div className="my-0.5 h-px bg-white/10" />
           <TabIcon icon={RotateCw} label="Reload" onClick={onReload} />
           <TabIcon icon={Download} label="Export" onClick={onExport} />
@@ -215,6 +226,9 @@ export function Sidebar({
               smoothing={sceneSmoothing}
               onSmoothingChange={onSceneSmoothingChange}
             />
+          </div>
+          <div className={activeTab === "mediapipe" ? "" : "hidden"}>
+            <MediaPipePanel config={mediaPipeConfig} onChange={onMediaPipeConfigChange} />
           </div>
         </div>
       </div>

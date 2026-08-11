@@ -79,6 +79,15 @@ self.onmessage = async (e: MessageEvent<PoseWorkerRequest>) => {
         }
         msg.bitmap.close()
         break
+      case "config":
+        if (landmarker && msg.config) {
+          await landmarker.setOptions({
+            minPosePresenceConfidence: msg.config.minPosePresenceConfidence,
+            minPoseDetectionConfidence: msg.config.minPoseDetectionConfidence,
+            minHandLandmarksConfidence: msg.config.minHandLandmarksConfidence,
+          })
+        }
+        break
     }
   } catch (err) {
     post({ type: "error", message: err instanceof Error ? err.message : String(err) })

@@ -24,5 +24,5 @@ export function useLocalStorage<T>(key: string, defaultValue: T) {
     [key],
   )
 
-  return [value, setAndSave]
+  return [value, setAndSave] as const
 }

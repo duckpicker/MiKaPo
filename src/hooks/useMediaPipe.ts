@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useCallback, useState } from "react"
 import type { PoseWorkerRequest, PoseWorkerResponse, PoseWorkerResult } from "@/types/pose-worker"
+import { MediaPipeConfig } from "@/configuration"
 
 export type InputMode = "image" | "video" | "camera" | null
 
@@ -9,6 +10,7 @@ export function useMediaPipe(
   videoRef: React.RefObject<HTMLVideoElement | null>,
   imageRef: React.RefObject<HTMLImageElement | null>,
   onResult: (result: PoseWorkerResult, mediaTs: number) => void,
+  mediaPipeConfig?: MediaPipeConfig,
 ) {
   const workerRef = useRef<Worker | null>(null)
   const [mediaPipeReady, setMediaPipeReady] = useState(false)
@@ -34,6 +36,7 @@ export function useMediaPipe(
       const msg = e.data
       if (msg.type === "ready") {
         ready = true
+        worker.postMessage({ type: "config", config: mediaPipeConfig })
         setMediaPipeReady(true)
       } else if (msg.type === "result") {
         pending = false

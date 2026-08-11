@@ -16,7 +16,20 @@ import type { FaceSolverResult, FaceMorphWeights } from "@/types/face"
 import type { PoseWorkerResult } from "@/types/pose-worker"
 import { buildClip } from "@/lib/vmd"
 import { useSceneConfig } from "@/hooks/useSceneConfig"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
 import { Engine, Model } from "reze-engine"
+
+interface MediaPipeConfig {
+  minPosePresenceConfidence: number
+  minPoseDetectionConfidence: number
+  minHandLandmarksConfidence: number
+}
+
+const DEFAULT_MEDIAPIPE_CONFIG: MediaPipeConfig = {
+  minPosePresenceConfidence: 0.5,
+  minPoseDetectionConfidence: 0.5,
+  minHandLandmarksConfidence: 0.7,
+}
 
 type DebugSceneProps = { landmarks: PoseWorkerResult | null }
 const DebugScene = lazy<ComponentType<DebugSceneProps>>(() => import("./debug-scene"))
@@ -37,6 +50,7 @@ export const MotionCapture = ({
   onFaceSolverReady,
   engineRef,
   modelRef,
+  configModule,
 }: {
   applyPose: (boneStates: BoneState[], tweenMs: number) => void
   applyFace: (faceResult: FaceSolverResult, tweenMs: number) => void
@@ -65,11 +79,17 @@ export const MotionCapture = ({
   const { boneGroupsSet, handleBoneChange, filterPose } = useBoneFilter()
   const faceCfg = useFaceConfig(faceSolverRef)
   const sceneCfg = useSceneConfig(engineRef, solverRef, modelRef, modelLoaded)
+  const [mediaPipeConfig, setMediaPipeConfig] = useLocalStorage<MediaPipeConfig>(
+    "mikapo-mediapipe-config",
+    DEFAULT_MEDIAPIPE_CONFIG,
+  )
+
   const resetAll = useCallback(() => {
     resetModel?.()
     solverRef.current.reset()
     faceSolverRef.current.reset()
   }, [resetModel])
+
   const modelLoadedRef = useRef(modelLoaded)
   useEffect(() => {
     modelLoadedRef.current = modelLoaded
@@ -105,14 +125,11 @@ export const MotionCapture = ({
       lastResultAtRef.current = now
       const tweenMs = Math.max(40, resultIntervalEmaRef.current * 2)
       if (!modelLoadedRef.current) return
-
       const pose = solverRef.current.solve(result, timestampMs)
       const filtered = filterPose(pose)
       applyPoseRef.current(filtered, tweenMs)
-
       if (faceEnabledRef.current && result.faceLandmarks?.[0]) {
-        const faceResult = faceSolverRef.current.solve(result.faceLandmarks[0], timestampMs)
-        applyFaceRef.current(faceResult, tweenMs)
+        applyFaceRef.current(faceSolverRef.current.solve(result.faceLandmarks[0], timestampMs), tweenMs)
       }
     },
     [filterPose],
@@ -122,8 +139,8 @@ export const MotionCapture = ({
     videoRef,
     imageRef,
     handleResult,
+    mediaPipeConfig,
   )
-
   const videoControls = useVideoControls()
   const { converting, progress, exported, cancelRef, exportPoseVmd, convertVideoToVmd } = useVmdExport(
     solverRef,
@@ -131,15 +148,12 @@ export const MotionCapture = ({
     exportVmd,
     faceEnabledRef,
   )
-
   const { inputMode, isStreamActive, currentImage, videoSrc, toggleCamera, handleImageUpload, handleVideoUpload } =
     useInputMode(videoRef, resetAll, postMode, postReset)
 
   const handleExport = useCallback(() => {
-    if (inputMode === "image") exportPoseVmd()
-    else if (videoRef.current) convertVideoToVmd(videoRef.current, awaitFrame)
+    inputMode === "image" ? exportPoseVmd() : videoRef.current && convertVideoToVmd(videoRef.current, awaitFrame)
   }, [inputMode, exportPoseVmd, convertVideoToVmd, awaitFrame])
-
   const handleReload = useCallback(() => window.location.reload(), [])
 
   useEffect(() => {
@@ -219,6 +233,8 @@ export const MotionCapture = ({
         onSceneWorldChange={sceneCfg.onSceneWorldChange}
         sceneSmoothing={sceneCfg.sceneSmoothing}
         onSceneSmoothingChange={sceneCfg.onSceneSmoothingChange}
+        mediaPipeConfig={mediaPipeConfig}
+        onMediaPipeConfigChange={(c) => setMediaPipeConfig((prev) => ({ ...prev, ...c }))}
       />
 
       <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={handleImageUpload} />

@@ -701,6 +701,7 @@ export class Solver {
 
     Quat.fromUnitVectorsInto(this.getRef(def.name), sDir, out)
 
+    if (def.witness && this.witnessEnabled) this.applyWitness(def, parentWorld, out)
     if (def.bend && this.bendClampEnabled) Solver.clampBend(def.bend, out)
   }
 
